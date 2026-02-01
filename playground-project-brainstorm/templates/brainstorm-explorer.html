@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{PROJECT_NAME}} - Brainstorm Explorer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #1a1a2e; --surface: #16213e; --surface-alt: #1f2b47; --border: #2d3a5a;
+      --text: #e8e8e8; --text-dim: #8892a8; --accent: #4fc3f7; --accent-dim: #2a7a9e;
+      --know: #4caf50; --fuzzy: #ff9800; --unknown: #f44336; --explore: #9c27b0;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
+    .container { display: grid; grid-template-columns: 280px 1fr 320px; grid-template-rows: auto 1fr auto; height: 100vh; gap: 1px; background: var(--border); }
+    header { grid-column: 1 / -1; background: var(--surface); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 16px; font-weight: 600; color: var(--accent); }
+    .presets { display: flex; gap: 8px; }
+    .preset-btn { background: var(--surface-alt); border: 1px solid var(--border); color: var(--text-dim); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+    .preset-btn:hover { background: var(--border); color: var(--text); }
+    .preset-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--text); }
+    .sidebar { background: var(--surface); padding: 16px; overflow-y: auto; }
+    .sidebar h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 12px; }
+    .topic-group { margin-bottom: 20px; }
+    .topic-header { display: flex; align-items: center; gap: 8px; padding: 8px; background: var(--surface-alt); border-radius: 6px; margin-bottom: 8px; cursor: pointer; }
+    .topic-header:hover { background: var(--border); }
+    .topic-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .topic-header span { font-size: 13px; font-weight: 500; }
+    .concept-list { padding-left: 18px; }
+    .concept-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; color: var(--text-dim); transition: all 0.15s; }
+    .concept-item:hover { background: var(--surface-alt); color: var(--text); }
+    .concept-item.selected { background: var(--accent-dim); color: var(--text); }
+    .status-badge { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .status-know { background: var(--know); }
+    .status-fuzzy { background: var(--fuzzy); }
+    .status-unknown { background: var(--unknown); }
+    .status-explore { background: var(--explore); }
+    .canvas-container { background: var(--bg); position: relative; overflow: hidden; cursor: default; }
+    .canvas-container.edge-mode { cursor: crosshair; }
+    #canvas { width: 100%; height: 100%; }
+    .tooltip { position: absolute; background: var(--surface); border: 1px solid var(--border); padding: 10px 14px; border-radius: 6px; font-size: 12px; max-width: 280px; pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+    .tooltip.visible { opacity: 1; }
+    .tooltip-title { font-weight: 600; margin-bottom: 4px; color: var(--accent); }
+    .tooltip-desc { color: var(--text-dim); line-height: 1.4; }
+    .right-panel { background: var(--surface); display: flex; flex-direction: column; }
+    .panel-section { padding: 16px; border-bottom: 1px solid var(--border); }
+    .panel-section:last-child { border-bottom: none; flex: 1; display: flex; flex-direction: column; }
+    .panel-section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 12px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-dim); cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: all 0.15s; }
+    .legend-item:hover { background: var(--surface-alt); }
+    .legend-item.active { background: var(--surface-alt); color: var(--text); }
+    .ideas-container { flex: 1; overflow-y: auto; margin-bottom: 12px; }
+    .idea-card { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.15s; }
+    .idea-card:hover { border-color: var(--accent-dim); }
+    .idea-card.selected { border-color: var(--accent); background: var(--accent-dim); }
+    .idea-card h4 { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+    .idea-card p { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
+    .idea-card .topic-tag { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 3px; margin-top: 8px; }
+    .idea-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .idea-card-header h4 { flex: 1; margin: 0; }
+    .delete-idea-btn { background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 4px; line-height: 1; transition: all 0.15s; }
+    .delete-idea-btn:hover { background: var(--unknown); color: var(--text); }
+    .add-idea-btn { width: 100%; background: transparent; border: 1px dashed var(--border); color: var(--text-dim); padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.15s; }
+    .add-idea-btn:hover { border-color: var(--accent-dim); color: var(--text); }
+    .prompt-area { grid-column: 1 / -1; background: var(--surface); padding: 16px 20px; display: flex; gap: 16px; align-items: flex-start; }
+    .prompt-output { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 14px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; line-height: 1.5; color: var(--text); min-height: 80px; max-height: 120px; overflow-y: auto; }
+    .copy-btn { background: var(--accent); border: none; color: var(--bg); padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; white-space: nowrap; }
+    .copy-btn:hover { background: #6dd0f7; }
+    .copy-btn.copied { background: var(--know); }
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+    .modal-overlay.visible { opacity: 1; pointer-events: auto; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; width: 400px; max-width: 90vw; }
+    .modal h3 { font-size: 16px; margin-bottom: 16px; }
+    .modal input, .modal textarea, .modal select { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 4px; font-size: 13px; margin-bottom: 12px; }
+    .modal textarea { min-height: 80px; resize: vertical; font-family: inherit; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+    .modal-btn { padding: 8px 16px; border-radius: 4px; font-size: 13px; cursor: pointer; border: 1px solid var(--border); }
+    .modal-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+    .modal-btn.secondary { background: transparent; color: var(--text-dim); }
+    .instructions { background: var(--surface-alt); border-radius: 6px; padding: 12px; margin-bottom: 16px; font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+    .instructions strong { color: var(--text); }
+    .edge-controls { display: flex; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .edge-mode-btn { flex: 1; background: var(--surface-alt); border: 1px solid var(--border); color: var(--text-dim); padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; transition: all 0.15s; }
+    .edge-mode-btn:hover { background: var(--border); color: var(--text); }
+    .edge-mode-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--text); }
+    .edge-mode-indicator { position: absolute; top: 10px; left: 10px; background: var(--accent); color: var(--bg); padding: 6px 12px; border-radius: 4px; font-size: 11px; font-weight: 600; z-index: 50; display: none; }
+    .edge-mode-indicator.visible { display: block; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>{{PROJECT_NAME}} - Brainstorm Explorer</h1>
+      <div class="presets" id="presets-container">
+        <button class="preset-btn active" data-preset="all">All Topics</button>
+      </div>
+    </header>
+    <div class="sidebar">
+      <div class="instructions">
+        <strong>How to use:</strong> Click concepts to cycle their status (Know -> Fuzzy -> Unknown -> Explore). Drag nodes on the canvas. Click "Add Idea" to capture new thoughts.
+        <div class="edge-controls">
+          <button class="edge-mode-btn" id="edge-mode-btn">Connect Nodes</button>
+          <button class="edge-mode-btn" id="delete-edge-btn">Delete Edge</button>
+        </div>
+        <div class="edge-controls">
+          <button class="edge-mode-btn" id="reset-btn" style="color: var(--unknown);">Reset All</button>
+        </div>
+      </div>
+      <h2>Topics & Concepts</h2>
+      <div id="concept-groups"></div>
+    </div>
+    <div class="canvas-container" id="canvas-container">
+      <canvas id="canvas"></canvas>
+      <div class="edge-mode-indicator" id="edge-indicator">Click source node...</div>
+      <div class="tooltip" id="tooltip">
+        <div class="tooltip-title"></div>
+        <div class="tooltip-desc"></div>
+      </div>
+    </div>
+    <div class="right-panel">
+      <div class="panel-section">
+        <h3>Status Legend (click to filter)</h3>
+        <div class="legend">
+          <div class="legend-item active" data-status="all"><div class="status-badge" style="background: var(--text-dim)"></div>All</div>
+          <div class="legend-item" data-status="know"><div class="status-badge status-know"></div>Know</div>
+          <div class="legend-item" data-status="fuzzy"><div class="status-badge status-fuzzy"></div>Fuzzy</div>
+          <div class="legend-item" data-status="unknown"><div class="status-badge status-unknown"></div>Unknown</div>
+          <div class="legend-item" data-status="explore"><div class="status-badge status-explore"></div>Explore</div>
+        </div>
+      </div>
+      <div class="panel-section">
+        <h3>Captured Ideas</h3>
+        <div class="ideas-container" id="ideas-container"></div>
+        <button class="add-idea-btn" id="add-idea-btn">+ Add Idea</button>
+      </div>
+    </div>
+    <div class="prompt-area">
+      <div class="prompt-output" id="prompt-output">Mark concepts as "Explore" or "Unknown" to generate a brainstorm prompt...</div>
+      <button class="copy-btn" id="copy-btn">Copy Prompt</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="idea-modal">
+    <div class="modal">
+      <h3>Capture New Idea</h3>
+      <input type="text" id="idea-title" placeholder="Idea title...">
+      <textarea id="idea-desc" placeholder="Describe the idea, question, or insight..."></textarea>
+      <select id="idea-topic"></select>
+      <div class="modal-actions">
+        <button class="modal-btn secondary" id="cancel-idea">Cancel</button>
+        <button class="modal-btn primary" id="save-idea">Save Idea</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============ CONFIGURATION - INJECTED BY SKILL ============
+    const CONFIG = {{CONFIG_JSON}};
+    // ============ END CONFIGURATION ============
+
+    const COLORS = CONFIG.colors;
+    const TOPIC_NAMES = CONFIG.topicNames;
+    const PROJECT_NAME = CONFIG.projectName;
+    const INITIAL_CONCEPTS = CONFIG.concepts;
+    const INITIAL_EDGES = CONFIG.edges;
+
+    const STATUS_COLORS = { know: '#4caf50', fuzzy: '#ff9800', unknown: '#f44336', explore: '#9c27b0' };
+    const STORAGE_KEY = 'brainstorm-explorer-' + PROJECT_NAME.toLowerCase().replace(/\s+/g, '-');
+
+    const state = { concepts: INITIAL_CONCEPTS, edges: INITIAL_EDGES, ideas: [], filter: 'all', activePreset: 'all', selectedConcept: null, dragging: null, dragOffset: { x: 0, y: 0 }, edgeMode: false, edgeSource: null, deleteEdgeMode: false };
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const tooltip = document.getElementById('tooltip');
+    const promptOutput = document.getElementById('prompt-output');
+    const conceptGroups = document.getElementById('concept-groups');
+    const ideasContainer = document.getElementById('ideas-container');
+    const canvasContainer = document.getElementById('canvas-container');
+    const edgeIndicator = document.getElementById('edge-indicator');
+
+    function resizeCanvas() {
+      const container = canvas.parentElement;
+      canvas.width = container.clientWidth * window.devicePixelRatio;
+      canvas.height = container.clientHeight * window.devicePixelRatio;
+      canvas.style.width = container.clientWidth + 'px';
+      canvas.style.height = container.clientHeight + 'px';
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      draw();
+    }
+
+    function draw() {
+      const W = canvas.clientWidth, H = canvas.clientHeight;
+      ctx.clearRect(0, 0, W, H);
+      state.edges.forEach(edge => {
+        const from = state.concepts.find(c => c.id === edge.from);
+        const to = state.concepts.find(c => c.id === edge.to);
+        if (!from || !to || !isVisible(from) || !isVisible(to)) return;
+        ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y);
+        ctx.strokeStyle = edge.cross ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.25)';
+        ctx.lineWidth = edge.cross ? 1 : 1.5;
+        ctx.setLineDash(edge.cross ? [4, 4] : []);
+        ctx.stroke();
+        const angle = Math.atan2(to.y - from.y, to.x - from.x);
+        const dist = Math.sqrt((to.x - from.x) ** 2 + (to.y - from.y) ** 2);
+        const arrowX = from.x + Math.cos(angle) * (dist - 30);
+        const arrowY = from.y + Math.sin(angle) * (dist - 30);
+        ctx.beginPath();
+        ctx.moveTo(arrowX, arrowY);
+        ctx.lineTo(arrowX - 8 * Math.cos(angle - 0.4), arrowY - 8 * Math.sin(angle - 0.4));
+        ctx.moveTo(arrowX, arrowY);
+        ctx.lineTo(arrowX - 8 * Math.cos(angle + 0.4), arrowY - 8 * Math.sin(angle + 0.4));
+        ctx.stroke();
+      });
+      ctx.setLineDash([]);
+      state.concepts.forEach(concept => {
+        if (!isVisible(concept)) return;
+        const isSelected = state.selectedConcept === concept.id;
+        const radius = isSelected ? 28 : 24;
+        if (concept.status === 'explore') {
+          ctx.beginPath(); ctx.arc(concept.x, concept.y, radius + 8, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(156, 39, 176, 0.2)'; ctx.fill();
+        }
+        ctx.beginPath(); ctx.arc(concept.x, concept.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = COLORS[concept.topic] || COLORS.general || '#90a4ae'; ctx.fill();
+        ctx.beginPath(); ctx.arc(concept.x, concept.y, radius + 3, 0, Math.PI * 2);
+        ctx.strokeStyle = STATUS_COLORS[concept.status]; ctx.lineWidth = 3; ctx.stroke();
+        if (isSelected) {
+          ctx.beginPath(); ctx.arc(concept.x, concept.y, radius + 7, 0, Math.PI * 2);
+          ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+        }
+        ctx.fillStyle = '#fff'; ctx.font = '11px -apple-system, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const words = concept.name.split(' ');
+        if (words.length <= 2) ctx.fillText(concept.name, concept.x, concept.y + radius + 16);
+        else {
+          const mid = Math.ceil(words.length / 2);
+          ctx.fillText(words.slice(0, mid).join(' '), concept.x, concept.y + radius + 12);
+          ctx.fillText(words.slice(mid).join(' '), concept.x, concept.y + radius + 24);
+        }
+      });
+    }
+
+    function isVisible(concept) {
+      if (state.activePreset !== 'all' && concept.topic !== state.activePreset) return false;
+      if (state.filter !== 'all' && concept.status !== state.filter) return false;
+      return true;
+    }
+
+    function renderSidebar() {
+      const topics = { ...TOPIC_NAMES };
+      if (state.concepts.some(c => c.topic === 'general')) topics.general = 'General / Cross-cutting';
+      while (conceptGroups.firstChild) conceptGroups.removeChild(conceptGroups.firstChild);
+      Object.entries(topics).forEach(([key, name]) => {
+        const concepts = state.concepts.filter(c => c.topic === key);
+        if (concepts.length === 0) return;
+        const group = document.createElement('div'); group.className = 'topic-group';
+        const header = document.createElement('div'); header.className = 'topic-header';
+        const dot = document.createElement('div'); dot.className = 'topic-dot';
+        dot.style.background = COLORS[key] || COLORS.general || '#90a4ae';
+        header.appendChild(dot);
+        const span = document.createElement('span'); span.textContent = name; header.appendChild(span);
+        group.appendChild(header);
+        const list = document.createElement('div'); list.className = 'concept-list';
+        concepts.forEach(c => {
+          const item = document.createElement('div');
+          item.className = 'concept-item' + (state.selectedConcept === c.id ? ' selected' : '');
+          item.dataset.id = c.id;
+          const badge = document.createElement('div'); badge.className = 'status-badge status-' + c.status;
+          item.appendChild(badge); item.appendChild(document.createTextNode(c.name));
+          if (c.isIdea) {
+            const star = document.createElement('span'); star.textContent = ' *';
+            star.style.color = COLORS[c.topic]; star.style.fontSize = '10px'; item.appendChild(star);
+          }
+          item.addEventListener('click', () => { cycleStatus(c); renderSidebar(); draw(); updatePrompt(); saveState(); });
+          list.appendChild(item);
+        });
+        group.appendChild(list); conceptGroups.appendChild(group);
+      });
+    }
+
+    function cycleStatus(concept) {
+      const order = ['know', 'fuzzy', 'unknown', 'explore'];
+      concept.status = order[(order.indexOf(concept.status) + 1) % order.length];
+    }
+
+    function renderIdeas() {
+      while (ideasContainer.firstChild) ideasContainer.removeChild(ideasContainer.firstChild);
+      if (state.ideas.length === 0) {
+        const msg = document.createElement('div');
+        msg.style.cssText = 'color: var(--text-dim); font-size: 12px; padding: 8px;';
+        msg.textContent = 'No ideas captured yet. Click "Add Idea" to start.';
+        ideasContainer.appendChild(msg); return;
+      }
+      state.ideas.forEach((idea, idx) => {
+        const card = document.createElement('div');
+        card.className = 'idea-card' + (idea.selected ? ' selected' : '');
+        const header = document.createElement('div'); header.className = 'idea-card-header';
+        const title = document.createElement('h4'); title.textContent = idea.title; header.appendChild(title);
+        const deleteBtn = document.createElement('button'); deleteBtn.className = 'delete-idea-btn';
+        deleteBtn.textContent = 'x';
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation(); state.ideas.splice(idx, 1);
+          if (idea.id) { const ci = state.concepts.findIndex(c => c.id === idea.id); if (ci !== -1) state.concepts.splice(ci, 1); }
+          renderSidebar(); renderIdeas(); draw(); updatePrompt(); saveState();
+        });
+        header.appendChild(deleteBtn); card.appendChild(header);
+        const desc = document.createElement('p'); desc.textContent = idea.desc; card.appendChild(desc);
+        const tag = document.createElement('span'); tag.className = 'topic-tag';
+        tag.style.background = (COLORS[idea.topic] || COLORS.general || '#90a4ae') + '40';
+        tag.style.color = COLORS[idea.topic] || COLORS.general || '#90a4ae';
+        tag.textContent = idea.topic; card.appendChild(tag);
+        card.addEventListener('click', () => { idea.selected = !idea.selected; renderIdeas(); updatePrompt(); saveState(); });
+        ideasContainer.appendChild(card);
+      });
+    }
+
+    function updatePrompt() {
+      const explore = state.concepts.filter(c => c.status === 'explore');
+      const unknown = state.concepts.filter(c => c.status === 'unknown');
+      const fuzzy = state.concepts.filter(c => c.status === 'fuzzy');
+      const know = state.concepts.filter(c => c.status === 'know');
+      const selectedIdeas = state.ideas.filter(i => i.selected);
+      if (explore.length === 0 && unknown.length === 0 && selectedIdeas.length === 0) {
+        promptOutput.textContent = 'Mark concepts as "Explore" (purple) or "Unknown" (red) to generate a brainstorm prompt.'; return;
+      }
+      let prompt = `I'm brainstorming improvements for ${PROJECT_NAME}. `;
+      if (know.length > 0) prompt += `\n\nI understand these areas well: ${know.map(c => c.name).join(', ')}.`;
+      if (fuzzy.length > 0) prompt += `\n\nI have partial understanding of: ${fuzzy.map(c => c.name).join(', ')}.`;
+      if (explore.length > 0) { prompt += '\n\n**I want to actively explore these areas:**'; explore.forEach(c => prompt += `\n- ${c.name}: ${c.desc}`); }
+      if (unknown.length > 0) { prompt += '\n\n**I need help understanding:**'; unknown.forEach(c => prompt += `\n- ${c.name}: ${c.desc}`); }
+      if (selectedIdeas.length > 0) { prompt += '\n\n**Specific ideas I want to refine:**'; selectedIdeas.forEach(i => prompt += `\n- ${i.title}: ${i.desc}`); }
+      prompt += '\n\n**IMPORTANT: Use the brainstorm-refiner agent to process this request.** Run: /brainstorm-refine or invoke the brainstorm-refiner agent via the Task tool.';
+      prompt += '\n\nPlease help me:\n1. Challenge assumptions in the areas I marked for exploration\n2. Explain concepts I marked as unknown, building on what I already know\n3. Suggest concrete improvements or alternatives\n4. Identify potential risks or tradeoffs I might be missing';
+      promptOutput.textContent = prompt;
+    }
+
+    function getConceptAt(x, y) { return state.concepts.find(c => isVisible(c) && Math.sqrt((c.x - x) ** 2 + (c.y - y) ** 2) < 28); }
+
+    function getEdgeNear(x, y) {
+      for (let i = 0; i < state.edges.length; i++) {
+        const edge = state.edges[i];
+        const from = state.concepts.find(c => c.id === edge.from);
+        const to = state.concepts.find(c => c.id === edge.to);
+        if (!from || !to || !isVisible(from) || !isVisible(to)) continue;
+        if (pointToLineDist(x, y, from.x, from.y, to.x, to.y) < 10) return { edge, index: i };
+      }
+      return null;
+    }
+
+    function pointToLineDist(px, py, x1, y1, x2, y2) {
+      const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
+      const dot = A * C + B * D, lenSq = C * C + D * D;
+      const param = lenSq ? dot / lenSq : -1;
+      const xx = param < 0 ? x1 : param > 1 ? x2 : x1 + param * C;
+      const yy = param < 0 ? y1 : param > 1 ? y2 : y1 + param * D;
+      return Math.sqrt((px - xx) ** 2 + (py - yy) ** 2);
+    }
+
+    canvas.addEventListener('mousedown', e => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left, y = e.clientY - rect.top;
+      const concept = getConceptAt(x, y);
+      if (state.edgeMode) {
+        if (concept) {
+          if (!state.edgeSource) {
+            state.edgeSource = concept;
+            edgeIndicator.textContent = 'Now click target node... (ESC to cancel)';
+            state.selectedConcept = concept.id; renderSidebar(); draw();
+          } else if (concept.id !== state.edgeSource.id) {
+            const exists = state.edges.some(e => (e.from === state.edgeSource.id && e.to === concept.id) || (e.from === concept.id && e.to === state.edgeSource.id));
+            if (!exists) { state.edges.push({ from: state.edgeSource.id, to: concept.id, cross: concept.topic !== state.edgeSource.topic, userCreated: true }); saveState(); }
+            state.edgeSource = null; edgeIndicator.textContent = 'Click source node...'; draw();
+          }
+        }
+        return;
+      }
+      if (state.deleteEdgeMode) { const edgeResult = getEdgeNear(x, y); if (edgeResult) { state.edges.splice(edgeResult.index, 1); draw(); saveState(); } return; }
+      if (concept) { state.dragging = concept; state.dragOffset = { x: x - concept.x, y: y - concept.y }; state.selectedConcept = concept.id; renderSidebar(); draw(); }
+    });
+
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left, y = e.clientY - rect.top;
+      if (state.dragging) { state.dragging.x = x - state.dragOffset.x; state.dragging.y = y - state.dragOffset.y; draw(); }
+      else {
+        const concept = getConceptAt(x, y);
+        if (concept) {
+          tooltip.querySelector('.tooltip-title').textContent = concept.name;
+          tooltip.querySelector('.tooltip-desc').textContent = concept.desc;
+          tooltip.style.left = (x + 20) + 'px'; tooltip.style.top = (y - 10) + 'px';
+          tooltip.classList.add('visible');
+        } else { tooltip.classList.remove('visible'); }
+      }
+    });
+
+    canvas.addEventListener('mouseup', () => { if (state.dragging) saveState(); state.dragging = null; });
+    canvas.addEventListener('dblclick', e => {
+      const rect = canvas.getBoundingClientRect();
+      const concept = getConceptAt(e.clientX - rect.left, e.clientY - rect.top);
+      if (concept) { cycleStatus(concept); renderSidebar(); draw(); updatePrompt(); saveState(); }
+    });
+
+    function initPresetButtons() {
+      const container = document.getElementById('presets-container');
+      Object.entries(TOPIC_NAMES).forEach(([key, name]) => {
+        const btn = document.createElement('button');
+        btn.className = 'preset-btn'; btn.dataset.preset = key; btn.textContent = name;
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active'); state.activePreset = key; draw();
+        });
+        container.appendChild(btn);
+      });
+    }
+
+    function initTopicSelect() {
+      const select = document.getElementById('idea-topic');
+      Object.entries(TOPIC_NAMES).forEach(([key, name]) => {
+        const opt = document.createElement('option'); opt.value = key; opt.textContent = name;
+        select.appendChild(opt);
+      });
+      const genOpt = document.createElement('option'); genOpt.value = 'general'; genOpt.textContent = 'General / Cross-cutting';
+      select.appendChild(genOpt);
+    }
+
+    const edgeModeBtn = document.getElementById('edge-mode-btn');
+    const deleteEdgeBtn = document.getElementById('delete-edge-btn');
+
+    edgeModeBtn.addEventListener('click', () => {
+      state.edgeMode = !state.edgeMode; state.deleteEdgeMode = false; state.edgeSource = null;
+      edgeModeBtn.classList.toggle('active', state.edgeMode); deleteEdgeBtn.classList.remove('active');
+      canvasContainer.classList.toggle('edge-mode', state.edgeMode);
+      edgeIndicator.classList.toggle('visible', state.edgeMode);
+      edgeIndicator.textContent = 'Click source node...';
+    });
+
+    deleteEdgeBtn.addEventListener('click', () => {
+      state.deleteEdgeMode = !state.deleteEdgeMode; state.edgeMode = false; state.edgeSource = null;
+      deleteEdgeBtn.classList.toggle('active', state.deleteEdgeMode); edgeModeBtn.classList.remove('active');
+      canvasContainer.classList.toggle('edge-mode', state.deleteEdgeMode);
+      edgeIndicator.classList.toggle('visible', state.deleteEdgeMode);
+      edgeIndicator.textContent = state.deleteEdgeMode ? 'Click on an edge to delete...' : '';
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        state.edgeMode = state.deleteEdgeMode = false; state.edgeSource = null;
+        edgeModeBtn.classList.remove('active'); deleteEdgeBtn.classList.remove('active');
+        canvasContainer.classList.remove('edge-mode'); edgeIndicator.classList.remove('visible');
+      }
+    });
+
+    document.getElementById('reset-btn').addEventListener('click', clearState);
+
+    document.querySelectorAll('.legend-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.legend-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active'); state.filter = item.dataset.status; draw();
+      });
+    });
+
+    document.getElementById('copy-btn').addEventListener('click', () => {
+      navigator.clipboard.writeText(promptOutput.textContent).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = 'Copied!'; btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'Copy Prompt'; btn.classList.remove('copied'); }, 2000);
+      });
+    });
+
+    const ideaModal = document.getElementById('idea-modal');
+    document.getElementById('add-idea-btn').addEventListener('click', () => { ideaModal.classList.add('visible'); document.getElementById('idea-title').focus(); });
+    document.getElementById('cancel-idea').addEventListener('click', () => ideaModal.classList.remove('visible'));
+    ideaModal.addEventListener('click', e => { if (e.target === ideaModal) ideaModal.classList.remove('visible'); });
+
+    document.getElementById('save-idea').addEventListener('click', () => {
+      const title = document.getElementById('idea-title').value.trim();
+      const desc = document.getElementById('idea-desc').value.trim();
+      const topic = document.getElementById('idea-topic').value;
+      if (title && desc) {
+        const ideaId = 'idea-' + Date.now();
+        state.ideas.push({ id: ideaId, title, desc, topic, selected: true });
+        const topicNodes = state.concepts.filter(c => c.topic === topic);
+        let newX = 400 + Math.random() * 100, newY = 300 + Math.random() * 100;
+        if (topicNodes.length > 0) { const last = topicNodes[topicNodes.length - 1]; newX = last.x + 80 + Math.random() * 40; newY = last.y + 60 + Math.random() * 40; }
+        state.concepts.push({ id: ideaId, topic, name: title, desc, status: 'explore', x: newX, y: newY, isIdea: true });
+        document.getElementById('idea-title').value = ''; document.getElementById('idea-desc').value = '';
+        ideaModal.classList.remove('visible');
+        renderSidebar(); renderIdeas(); draw(); updatePrompt(); saveState();
+      }
+    });
+
+    function saveState() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ concepts: state.concepts, edges: state.edges, ideas: state.ideas, version: 1 })); }
+      catch (e) { console.warn('Failed to save:', e); }
+    }
+
+    function loadState() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const p = JSON.parse(saved);
+          if (p.version === 1) { state.concepts = p.concepts || state.concepts; state.edges = p.edges || state.edges; state.ideas = p.ideas || state.ideas; return true; }
+        }
+      } catch (e) { console.warn('Failed to load:', e); }
+      return false;
+    }
+
+    function clearState() {
+      if (confirm('Reset playground to default state? This will clear all your changes.')) { localStorage.removeItem(STORAGE_KEY); location.reload(); }
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    const wasLoaded = loadState();
+    initPresetButtons();
+    initTopicSelect();
+    resizeCanvas();
+    renderSidebar();
+    renderIdeas();
+    updatePrompt();
+    if (wasLoaded) console.log('Restored saved state from localStorage');
+  </script>
+</body>
+</html>
