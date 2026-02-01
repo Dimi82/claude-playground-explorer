@@ -403,6 +403,15 @@
 
     function initPresetButtons() {
       const container = document.getElementById('presets-container');
+      // Add click handler for existing "All Topics" button
+      const allBtn = container.querySelector('[data-preset="all"]');
+      if (allBtn) {
+        allBtn.addEventListener('click', () => {
+          document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+          allBtn.classList.add('active'); state.activePreset = 'all'; draw();
+        });
+      }
+      // Add topic-specific buttons
       Object.entries(TOPIC_NAMES).forEach(([key, name]) => {
         const btn = document.createElement('button');
         btn.className = 'preset-btn'; btn.dataset.preset = key; btn.textContent = name;
