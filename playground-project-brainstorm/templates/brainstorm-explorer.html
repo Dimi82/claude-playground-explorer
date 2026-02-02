@@ -86,6 +86,24 @@
     .edge-mode-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--text); }
     .edge-mode-indicator { position: absolute; top: 10px; left: 10px; background: var(--accent); color: var(--bg); padding: 6px 12px; border-radius: 4px; font-size: 11px; font-weight: 600; z-index: 50; display: none; }
     .edge-mode-indicator.visible { display: block; }
+    /* Zoom Controls */
+    .zoom-controls {
+      position: absolute; bottom: 16px; right: 16px; display: flex; gap: 4px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .zoom-btn {
+      background: var(--surface-alt); border: 1px solid var(--border); border-radius: 4px;
+      color: var(--text); width: 32px; height: 32px; cursor: pointer; font-size: 16px;
+      display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+    }
+    .zoom-btn:hover { background: var(--border); }
+    .zoom-btn:active { transform: scale(0.95); }
+    .zoom-btn.zoom-text { width: auto; padding: 0 10px; font-size: 11px; }
+    .zoom-level {
+      color: var(--text-dim); font-size: 11px; display: flex; align-items: center;
+      padding: 0 8px; min-width: 45px; justify-content: center;
+    }
   </style>
 </head>
 <body>
@@ -116,6 +134,13 @@
       <div class="tooltip" id="tooltip">
         <div class="tooltip-title"></div>
         <div class="tooltip-desc"></div>
+      </div>
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="zoom-out" title="Zoom Out (Ctrl+-)">−</button>
+        <div class="zoom-level" id="zoom-level">100%</div>
+        <button class="zoom-btn" id="zoom-in" title="Zoom In (Ctrl++)">+</button>
+        <button class="zoom-btn zoom-text" id="zoom-reset" title="Reset to 100% (Ctrl+0)">Reset</button>
+        <button class="zoom-btn zoom-text" id="zoom-fit" title="Fit to View">Fit</button>
       </div>
     </div>
     <div class="right-panel">
@@ -187,6 +212,137 @@
 
     const state = { concepts: INITIAL_CONCEPTS, edges: INITIAL_EDGES, ideas: [], filter: 'all', activePreset: 'all', selectedConcept: null, dragging: null, dragOffset: { x: 0, y: 0 }, edgeMode: false, edgeSource: null, deleteEdgeMode: false };
 
+    // ============ ZOOM MANAGEMENT ============
+    const zoom = {
+      scale: 1.0,
+      minScale: 0.25,
+      maxScale: 2.0,
+      step: 0.1,
+      offsetX: 0,
+      offsetY: 0,
+
+      updateDisplay: function() {
+        const levelDisplay = document.getElementById('zoom-level');
+        if (levelDisplay) {
+          levelDisplay.textContent = Math.round(this.scale * 100) + '%';
+        }
+      },
+
+      zoomIn: function() {
+        this.scale = Math.min(this.maxScale, Math.round((this.scale + this.step) * 100) / 100);
+        this.updateDisplay();
+        this.save();
+        draw();
+      },
+
+      zoomOut: function() {
+        this.scale = Math.max(this.minScale, Math.round((this.scale - this.step) * 100) / 100);
+        this.updateDisplay();
+        this.save();
+        draw();
+      },
+
+      reset: function() {
+        this.scale = 1.0;
+        this.offsetX = 0;
+        this.offsetY = 0;
+        this.updateDisplay();
+        this.save();
+        draw();
+      },
+
+      fitToView: function() {
+        const visible = state.concepts.filter(c => isVisible(c));
+        if (visible.length === 0) return;
+
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        visible.forEach(c => {
+          minX = Math.min(minX, c.x);
+          minY = Math.min(minY, c.y);
+          maxX = Math.max(maxX, c.x);
+          maxY = Math.max(maxY, c.y);
+        });
+
+        const padding = 100;
+        const contentWidth = maxX - minX + padding * 2;
+        const contentHeight = maxY - minY + padding * 2;
+        const canvasWidth = canvas.clientWidth;
+        const canvasHeight = canvas.clientHeight;
+
+        const scaleX = canvasWidth / contentWidth;
+        const scaleY = canvasHeight / contentHeight;
+        this.scale = Math.min(Math.max(Math.min(scaleX, scaleY), this.minScale), this.maxScale);
+        this.scale = Math.round(this.scale * 100) / 100;
+
+        // Center the content
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        this.offsetX = canvasWidth / (2 * this.scale) - centerX;
+        this.offsetY = canvasHeight / (2 * this.scale) - centerY;
+
+        this.updateDisplay();
+        this.save();
+        draw();
+      },
+
+      zoomToPoint: function(delta, clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = clientX - rect.left;
+        const mouseY = clientY - rect.top;
+
+        // Convert mouse position to world coordinates before zoom
+        const worldX = mouseX / this.scale - this.offsetX;
+        const worldY = mouseY / this.scale - this.offsetY;
+
+        const oldScale = this.scale;
+        const zoomDelta = delta > 0 ? -this.step : this.step;
+        this.scale = Math.max(this.minScale, Math.min(this.maxScale, Math.round((this.scale + zoomDelta) * 100) / 100));
+
+        if (this.scale !== oldScale) {
+          // Adjust offset to keep mouse position fixed in world coordinates
+          this.offsetX = mouseX / this.scale - worldX;
+          this.offsetY = mouseY / this.scale - worldY;
+
+          this.updateDisplay();
+          this.save();
+          draw();
+        }
+      },
+
+      screenToWorld: function(screenX, screenY) {
+        return {
+          x: screenX / this.scale - this.offsetX,
+          y: screenY / this.scale - this.offsetY
+        };
+      },
+
+      save: function() {
+        try {
+          localStorage.setItem(STORAGE_KEY + '-zoom', JSON.stringify({
+            scale: this.scale,
+            offsetX: this.offsetX,
+            offsetY: this.offsetY
+          }));
+        } catch (e) { console.warn('Failed to save zoom:', e); }
+      },
+
+      load: function() {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY + '-zoom');
+          if (saved) {
+            const data = JSON.parse(saved);
+            if (data.scale >= this.minScale && data.scale <= this.maxScale) {
+              this.scale = data.scale;
+              this.offsetX = data.offsetX || 0;
+              this.offsetY = data.offsetY || 0;
+              this.updateDisplay();
+            }
+          }
+        } catch (e) { console.warn('Failed to load zoom:', e); }
+      }
+    };
+    // ============ END ZOOM MANAGEMENT ============
+
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const tooltip = document.getElementById('tooltip');
@@ -209,13 +365,19 @@
     function draw() {
       const W = canvas.clientWidth, H = canvas.clientHeight;
       ctx.clearRect(0, 0, W, H);
+
+      // Apply zoom transformation
+      ctx.save();
+      ctx.scale(zoom.scale, zoom.scale);
+      ctx.translate(zoom.offsetX, zoom.offsetY);
+
       state.edges.forEach(edge => {
         const from = state.concepts.find(c => c.id === edge.from);
         const to = state.concepts.find(c => c.id === edge.to);
         if (!from || !to || !isVisible(from) || !isVisible(to)) return;
         ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y);
         ctx.strokeStyle = edge.cross ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.25)';
-        ctx.lineWidth = edge.cross ? 1 : 1.5;
+        ctx.lineWidth = Math.max(0.5, Math.min(3, (edge.cross ? 1 : 1.5) / zoom.scale));
         ctx.setLineDash(edge.cross ? [4, 4] : []);
         ctx.stroke();
         const angle = Math.atan2(to.y - from.y, to.x - from.x);
@@ -241,10 +403,10 @@
         ctx.beginPath(); ctx.arc(concept.x, concept.y, radius, 0, Math.PI * 2);
         ctx.fillStyle = COLORS[concept.topic] || COLORS.general || '#90a4ae'; ctx.fill();
         ctx.beginPath(); ctx.arc(concept.x, concept.y, radius + 3, 0, Math.PI * 2);
-        ctx.strokeStyle = STATUS_COLORS[concept.status]; ctx.lineWidth = 3; ctx.stroke();
+        ctx.strokeStyle = STATUS_COLORS[concept.status]; ctx.lineWidth = Math.max(1, Math.min(5, 3 / zoom.scale)); ctx.stroke();
         if (isSelected) {
           ctx.beginPath(); ctx.arc(concept.x, concept.y, radius + 7, 0, Math.PI * 2);
-          ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+          ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(1, Math.min(4, 2 / zoom.scale)); ctx.stroke();
         }
         ctx.fillStyle = '#fff'; ctx.font = '11px -apple-system, sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -256,6 +418,8 @@
           ctx.fillText(words.slice(mid).join(' '), concept.x, concept.y + radius + 24);
         }
       });
+
+      ctx.restore();
     }
 
     function isVisible(concept) {
@@ -376,8 +540,9 @@
 
     canvas.addEventListener('mousedown', e => {
       const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left, y = e.clientY - rect.top;
-      const concept = getConceptAt(x, y);
+      const screenX = e.clientX - rect.left, screenY = e.clientY - rect.top;
+      const world = zoom.screenToWorld(screenX, screenY);
+      const concept = getConceptAt(world.x, world.y);
       if (state.edgeMode) {
         if (concept) {
           if (!state.edgeSource) {
@@ -392,20 +557,21 @@
         }
         return;
       }
-      if (state.deleteEdgeMode) { const edgeResult = getEdgeNear(x, y); if (edgeResult) { state.edges.splice(edgeResult.index, 1); draw(); saveState(); } return; }
-      if (concept) { state.dragging = concept; state.dragOffset = { x: x - concept.x, y: y - concept.y }; state.selectedConcept = concept.id; renderSidebar(); draw(); }
+      if (state.deleteEdgeMode) { const edgeResult = getEdgeNear(world.x, world.y); if (edgeResult) { state.edges.splice(edgeResult.index, 1); draw(); saveState(); } return; }
+      if (concept) { state.dragging = concept; state.dragOffset = { x: world.x - concept.x, y: world.y - concept.y }; state.selectedConcept = concept.id; renderSidebar(); draw(); }
     });
 
     canvas.addEventListener('mousemove', e => {
       const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left, y = e.clientY - rect.top;
-      if (state.dragging) { state.dragging.x = x - state.dragOffset.x; state.dragging.y = y - state.dragOffset.y; draw(); }
+      const screenX = e.clientX - rect.left, screenY = e.clientY - rect.top;
+      const world = zoom.screenToWorld(screenX, screenY);
+      if (state.dragging) { state.dragging.x = world.x - state.dragOffset.x; state.dragging.y = world.y - state.dragOffset.y; draw(); }
       else {
-        const concept = getConceptAt(x, y);
+        const concept = getConceptAt(world.x, world.y);
         if (concept) {
           tooltip.querySelector('.tooltip-title').textContent = concept.name;
           tooltip.querySelector('.tooltip-desc').textContent = concept.desc;
-          tooltip.style.left = (x + 20) + 'px'; tooltip.style.top = (y - 10) + 'px';
+          tooltip.style.left = (screenX + 20) + 'px'; tooltip.style.top = (screenY - 10) + 'px';
           tooltip.classList.add('visible');
         } else { tooltip.classList.remove('visible'); }
       }
@@ -414,7 +580,8 @@
     canvas.addEventListener('mouseup', () => { if (state.dragging) saveState(); state.dragging = null; });
     canvas.addEventListener('dblclick', e => {
       const rect = canvas.getBoundingClientRect();
-      const concept = getConceptAt(e.clientX - rect.left, e.clientY - rect.top);
+      const world = zoom.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+      const concept = getConceptAt(world.x, world.y);
       if (concept) { cycleStatus(concept); renderSidebar(); draw(); updatePrompt(); saveState(); }
     });
 
@@ -533,11 +700,44 @@
     }
 
     function clearState() {
-      if (confirm('Reset playground to default state? This will clear all your changes.')) { localStorage.removeItem(STORAGE_KEY); location.reload(); }
+      if (confirm('Reset playground to default state? This will clear all your changes.')) { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(STORAGE_KEY + '-zoom'); location.reload(); }
     }
+
+    // ============ ZOOM EVENT LISTENERS ============
+    document.getElementById('zoom-in').addEventListener('click', () => zoom.zoomIn());
+    document.getElementById('zoom-out').addEventListener('click', () => zoom.zoomOut());
+    document.getElementById('zoom-reset').addEventListener('click', () => zoom.reset());
+    document.getElementById('zoom-fit').addEventListener('click', () => zoom.fitToView());
+
+    // Mouse wheel zoom (Ctrl/Cmd + wheel)
+    canvas.addEventListener('wheel', e => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        zoom.zoomToPoint(e.deltaY, e.clientX, e.clientY);
+      }
+    }, { passive: false });
+
+    // Keyboard shortcuts for zoom
+    document.addEventListener('keydown', e => {
+      // Only handle if not focused on input elements
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault();
+        zoom.reset();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        zoom.zoomIn();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault();
+        zoom.zoomOut();
+      }
+    });
+    // ============ END ZOOM EVENT LISTENERS ============
 
     window.addEventListener('resize', resizeCanvas);
     const wasLoaded = loadState();
+    zoom.load(); // Load saved zoom level
     initPresetButtons();
     initTopicSelect();
     resizeCanvas();

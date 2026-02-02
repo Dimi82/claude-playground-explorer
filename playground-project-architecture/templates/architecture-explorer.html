@@ -480,6 +480,30 @@
       fill: #8b949e;
       font-weight: 600;
     }
+
+    /* Zoom Controls */
+    .zoom-controls {
+      position: absolute; bottom: 16px; right: 16px; display: flex; gap: 4px;
+      background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+      padding: 8px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .zoom-btn {
+      background: #21262d; border: 1px solid #30363d; border-radius: 4px;
+      color: #c9d1d9; width: 32px; height: 32px; cursor: pointer; font-size: 16px;
+      display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+    }
+    .zoom-btn:hover { background: #30363d; }
+    .zoom-btn:active { transform: scale(0.95); }
+    .zoom-btn.zoom-text { width: auto; padding: 0 10px; font-size: 11px; }
+    .zoom-level {
+      color: #8b949e; font-size: 11px; display: flex; align-items: center;
+      padding: 0 8px; min-width: 45px; justify-content: center;
+    }
+    .diagram-content {
+      transform-origin: 0 0;
+      display: inline-block;
+      min-width: 100%;
+    }
   </style>
 </head>
 <body>
@@ -509,7 +533,16 @@
         </div>
         <div style="font-size: 11px; color: #8b949e;">Right-click to annotate</div>
       </div>
-      <div class="diagram-canvas" id="diagram-canvas"></div>
+      <div class="diagram-canvas" id="diagram-canvas">
+        <div class="diagram-content" id="diagram-content"></div>
+        <div class="zoom-controls">
+          <button class="zoom-btn" id="zoom-out" title="Zoom Out (Ctrl+-)">−</button>
+          <div class="zoom-level" id="zoom-level">100%</div>
+          <button class="zoom-btn" id="zoom-in" title="Zoom In (Ctrl++)">+</button>
+          <button class="zoom-btn zoom-text" id="zoom-reset" title="Reset to 100% (Ctrl+0)">Reset</button>
+          <button class="zoom-btn zoom-text" id="zoom-fit" title="Fit to View">Fit</button>
+        </div>
+      </div>
     </div>
     <div class="details-panel">
       <div class="details-header">
@@ -597,6 +630,120 @@
       contextTarget: null
     };
 
+    // ============ ZOOM MANAGEMENT ============
+    const zoom = {
+      scale: 1.0,
+      minScale: 0.25,
+      maxScale: 2.0,
+      step: 0.1,
+
+      apply: function() {
+        var content = document.getElementById('diagram-content');
+        if (content) {
+          content.style.transform = 'scale(' + this.scale + ')';
+        }
+        var levelDisplay = document.getElementById('zoom-level');
+        if (levelDisplay) {
+          levelDisplay.textContent = Math.round(this.scale * 100) + '%';
+        }
+      },
+
+      zoomIn: function() {
+        this.scale = Math.min(this.maxScale, Math.round((this.scale + this.step) * 100) / 100);
+        this.apply();
+        this.save();
+      },
+
+      zoomOut: function() {
+        this.scale = Math.max(this.minScale, Math.round((this.scale - this.step) * 100) / 100);
+        this.apply();
+        this.save();
+      },
+
+      reset: function() {
+        this.scale = 1.0;
+        this.apply();
+        this.save();
+        // Reset scroll position
+        var canvas = document.getElementById('diagram-canvas');
+        if (canvas) { canvas.scrollTop = 0; canvas.scrollLeft = 0; }
+      },
+
+      fitToView: function() {
+        var canvas = document.getElementById('diagram-canvas');
+        var content = document.getElementById('diagram-content');
+        if (!canvas || !content) return;
+
+        // Temporarily reset scale to measure actual content size
+        this.scale = 1.0;
+        this.apply();
+
+        // Wait for layout to update
+        setTimeout(function() {
+          var canvasRect = canvas.getBoundingClientRect();
+          var contentRect = content.getBoundingClientRect();
+
+          // Calculate scale to fit content with padding
+          var padding = 80;
+          var scaleX = (canvasRect.width - padding) / contentRect.width;
+          var scaleY = (canvasRect.height - padding) / contentRect.height;
+          zoom.scale = Math.min(Math.max(Math.min(scaleX, scaleY), zoom.minScale), zoom.maxScale);
+          zoom.scale = Math.round(zoom.scale * 100) / 100;
+          zoom.apply();
+          zoom.save();
+
+          // Center content
+          canvas.scrollTop = 0;
+          canvas.scrollLeft = 0;
+        }, 10);
+      },
+
+      zoomToPoint: function(delta, clientX, clientY) {
+        var canvas = document.getElementById('diagram-canvas');
+        if (!canvas) return;
+
+        var oldScale = this.scale;
+        var zoomDelta = delta > 0 ? -this.step : this.step;
+        this.scale = Math.max(this.minScale, Math.min(this.maxScale, Math.round((this.scale + zoomDelta) * 100) / 100));
+
+        if (this.scale !== oldScale) {
+          // Get mouse position relative to canvas
+          var rect = canvas.getBoundingClientRect();
+          var mouseX = clientX - rect.left + canvas.scrollLeft;
+          var mouseY = clientY - rect.top + canvas.scrollTop;
+
+          // Calculate new scroll position to keep mouse point fixed
+          var newScrollX = (mouseX * this.scale / oldScale) - (clientX - rect.left);
+          var newScrollY = (mouseY * this.scale / oldScale) - (clientY - rect.top);
+
+          this.apply();
+          canvas.scrollLeft = Math.max(0, newScrollX);
+          canvas.scrollTop = Math.max(0, newScrollY);
+          this.save();
+        }
+      },
+
+      save: function() {
+        try {
+          localStorage.setItem(STORAGE_KEY + '-zoom', JSON.stringify({ scale: this.scale }));
+        } catch (e) { console.warn('Failed to save zoom:', e); }
+      },
+
+      load: function() {
+        try {
+          var saved = localStorage.getItem(STORAGE_KEY + '-zoom');
+          if (saved) {
+            var data = JSON.parse(saved);
+            if (data.scale >= this.minScale && data.scale <= this.maxScale) {
+              this.scale = data.scale;
+              this.apply();
+            }
+          }
+        } catch (e) { console.warn('Failed to load zoom:', e); }
+      }
+    };
+    // ============ END ZOOM MANAGEMENT ============
+
     function saveState() {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ annotations: state.annotations, version: 1 }));
@@ -617,6 +764,7 @@
     function clearState() {
       if (confirm('Reset explorer to default state? This will clear all your annotations.')) {
         localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(STORAGE_KEY + '-zoom');
         location.reload();
       }
     }
@@ -677,7 +825,7 @@
     }
 
     function renderWorkflowView() {
-      var canvas = document.getElementById('diagram-canvas');
+      var canvas = document.getElementById('diagram-content');
       canvas.textContent = '';
       if (!WORKFLOW_STRUCTURE || WORKFLOW_STRUCTURE.length === 0) {
         var placeholder = document.createElement('div');
@@ -706,7 +854,7 @@
     }
 
     function renderDataFlowView() {
-      var canvas = document.getElementById('diagram-canvas');
+      var canvas = document.getElementById('diagram-content');
       canvas.textContent = '';
       var diagram = document.createElement('div');
       diagram.className = 'data-flow-diagram';
@@ -738,7 +886,7 @@
     }
 
     function renderFilesView() {
-      var canvas = document.getElementById('diagram-canvas');
+      var canvas = document.getElementById('diagram-content');
       canvas.textContent = '';
       var tree = document.createElement('div');
       tree.className = 'file-tree';
@@ -769,7 +917,7 @@
     }
 
     function renderSequenceView() {
-      var canvas = document.getElementById('diagram-canvas');
+      var canvas = document.getElementById('diagram-content');
       canvas.textContent = '';
       if (!SEQUENCE_FLOWS || SEQUENCE_FLOWS.length === 0) {
         var placeholder = document.createElement('div');
@@ -1017,7 +1165,7 @@
     }
 
     function renderEnhancedWorkflow() {
-      var canvas = document.getElementById('diagram-canvas');
+      var canvas = document.getElementById('diagram-content');
       canvas.textContent = '';
 
       var workflow = CONFIG.workflowStructureV2;
@@ -1560,7 +1708,40 @@
       }
     });
 
+    // ============ ZOOM EVENT LISTENERS ============
+    document.getElementById('zoom-in').addEventListener('click', function() { zoom.zoomIn(); });
+    document.getElementById('zoom-out').addEventListener('click', function() { zoom.zoomOut(); });
+    document.getElementById('zoom-reset').addEventListener('click', function() { zoom.reset(); });
+    document.getElementById('zoom-fit').addEventListener('click', function() { zoom.fitToView(); });
+
+    // Mouse wheel zoom (Ctrl/Cmd + wheel)
+    document.getElementById('diagram-canvas').addEventListener('wheel', function(e) {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        zoom.zoomToPoint(e.deltaY, e.clientX, e.clientY);
+      }
+    }, { passive: false });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+      // Only handle if not focused on input elements
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault();
+        zoom.reset();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        zoom.zoomIn();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault();
+        zoom.zoomOut();
+      }
+    });
+    // ============ END ZOOM EVENT LISTENERS ============
+
     var wasLoaded = loadState();
+    zoom.load(); // Load saved zoom level
 
     // Set header title from config
     document.getElementById('header-title').textContent = PROJECT_NAME + ' - Architecture Explorer';
