@@ -154,10 +154,27 @@
     </div>
   </div>
 
+  <!-- External config: include before main script -->
+  <!-- Example: <script src="config-myproject.js"></script> -->
+  <!-- The config.js file should define: window.EXTERNAL_CONFIG = { projectName: "...", ... }; -->
+
   <script>
-    // ============ CONFIGURATION - INJECTED BY SKILL ============
-    const CONFIG = {{CONFIG_JSON}};
-    // ============ END CONFIGURATION ============
+    // ============ CONFIGURATION LOADER ============
+    (function init() {
+      // Load config: prefer external window.EXTERNAL_CONFIG, fall back to inline
+      function loadConfig() {
+        // Check for externally loaded config (via <script src="config.js">)
+        if (window.EXTERNAL_CONFIG) {
+          return window.EXTERNAL_CONFIG;
+        }
+
+        // No external config found - show error
+        alert('No configuration found. Either:\n1. Include a config script: <script src="config-name.js">\n2. Replace {{CONFIG_JSON}} with inline config');
+        throw new Error('No configuration found');
+      }
+
+      const CONFIG = loadConfig();
+    // ============ END CONFIGURATION LOADER ============
 
     const COLORS = CONFIG.colors;
     const TOPIC_NAMES = CONFIG.topicNames;
@@ -528,6 +545,7 @@
     renderIdeas();
     updatePrompt();
     if (wasLoaded) console.log('Restored saved state from localStorage');
+    })(); // End init
   </script>
 </body>
 </html>

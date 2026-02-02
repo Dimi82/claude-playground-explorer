@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{PROJECT_NAME}} - Architecture Explorer</title>
+  <title>Architecture Explorer</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -132,6 +132,89 @@
     .file-indent { color: #484f58; }
     .file-icon { width: 16px; text-align: center; }
 
+    /* Sequence Diagram */
+    .sequence-diagram { padding: 40px; display: flex; flex-direction: column; gap: 60px; }
+    .sequence-flow { display: flex; flex-direction: column; min-width: 800px; }
+    .sequence-flow-title { font-size: 14px; font-weight: 600; color: #f0f6fc; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid #30363d; }
+    .participant-header { display: grid; gap: 40px; margin-bottom: 0; position: relative; z-index: 2; }
+    .participant-box {
+      background: #21262d; border: 2px solid #30363d; border-radius: 8px;
+      padding: 12px 16px; text-align: center; font-weight: 600; font-size: 13px;
+      position: relative;
+    }
+    .participant-box::after {
+      content: ''; position: absolute; bottom: -20px; left: 50%;
+      transform: translateX(-50%); width: 2px; height: 20px; background: #30363d;
+    }
+    .sequence-timeline { display: grid; gap: 40px; position: relative; min-height: 100px; }
+    .lifeline-column { display: flex; flex-direction: column; align-items: center; position: relative; }
+    .lifeline { width: 2px; background: #30363d; position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); }
+    .messages-layer { position: absolute; top: 20px; left: 0; right: 0; display: flex; flex-direction: column; gap: 24px; z-index: 1; }
+    .message-row { display: grid; gap: 40px; align-items: center; min-height: 40px; }
+    .message-arrow {
+      position: relative; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; padding: 4px 0; transition: all 0.2s; min-height: 32px;
+    }
+    .message-arrow::before {
+      content: ''; position: absolute; height: 2px; background: #58a6ff;
+      left: 20px; right: 20px; top: 50%;
+    }
+    .message-arrow::after {
+      content: ''; position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      border: 6px solid transparent; border-left: 8px solid #58a6ff;
+    }
+    .message-arrow.reverse::after {
+      right: auto; left: 12px;
+      border-left: none; border-right: 8px solid #58a6ff;
+    }
+    .message-arrow.return::before { background: #8b949e; height: 0; border-top: 2px dashed #8b949e; }
+    .message-arrow.return::after { border-left-color: #8b949e; }
+    .message-arrow.return.reverse::after { border-right-color: #8b949e; border-left-color: transparent; }
+    .message-arrow.async::before { background: #a371f7; }
+    .message-arrow.async::after { border-left-color: #a371f7; }
+    .message-arrow.async.reverse::after { border-right-color: #a371f7; border-left-color: transparent; }
+    .message-arrow.self-call {
+      justify-content: flex-end; padding-right: 20px; min-height: 50px;
+    }
+    .message-arrow.self-call::before {
+      left: 50%; right: -30px; top: 0; height: 100%;
+      background: none; border: 2px solid #58a6ff; border-left: none;
+      border-radius: 0 8px 8px 0;
+    }
+    .message-arrow.self-call::after {
+      right: auto; left: calc(50% - 8px); top: auto; bottom: -2px;
+      transform: rotate(90deg);
+    }
+    .message-label {
+      background: #0d1117; padding: 4px 12px; border-radius: 4px;
+      font-size: 12px; color: #c9d1d9; z-index: 1; position: relative;
+      white-space: nowrap; border: 1px solid #30363d; max-width: 200px;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .message-arrow:hover { transform: translateY(-2px); }
+    .message-arrow:hover .message-label { background: #161b22; border-color: #58a6ff; }
+    .message-arrow.selected::before { background: #58a6ff; box-shadow: 0 0 8px #58a6ff80; }
+    .message-arrow.selected .message-label { background: #388bfd26; border-color: #58a6ff; color: #58a6ff; }
+    .message-arrow.has-annotation .message-label::after {
+      content: ''; position: absolute; right: -6px; top: -6px;
+      width: 12px; height: 12px; background: #f0883e; border-radius: 50%; border: 2px solid #0d1117;
+    }
+    .sequence-fragment {
+      border: 2px dashed #30363d; border-radius: 8px; padding: 16px;
+      margin: 8px 0; background: #161b2210; position: relative;
+    }
+    .fragment-label {
+      position: absolute; top: -10px; left: 12px; background: #0d1117;
+      padding: 2px 8px; font-size: 10px; font-weight: 600;
+      text-transform: uppercase; color: #8b949e; border: 1px solid #30363d; border-radius: 4px;
+    }
+    .sequence-fragment.loop { border-color: #3fb950; }
+    .sequence-fragment.loop .fragment-label { color: #3fb950; border-color: #3fb950; }
+    .sequence-fragment.alt { border-color: #f0883e; }
+    .sequence-fragment.alt .fragment-label { color: #f0883e; border-color: #f0883e; }
+    .sequence-fragment.opt { border-color: #a371f7; }
+    .sequence-fragment.opt .fragment-label { color: #a371f7; border-color: #a371f7; }
+
     /* Right Panel */
     .details-panel { width: 420px; background: #161b22; border-left: 1px solid #30363d; display: flex; flex-direction: column; }
     .details-header { padding: 16px 20px; border-bottom: 1px solid #30363d; display: flex; align-items: center; justify-content: space-between; }
@@ -237,11 +320,171 @@
     .stat-dot.question { background: #58a6ff; }
     .stat-dot.comment { background: #3fb950; }
     .stat-dot.edit { background: #f0883e; }
+
+    /* ========== Enhanced Workflow Diagram (V2) ========== */
+    .workflow-diagram-v2 {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 60px;
+      padding: 60px 40px;
+      min-width: 900px;
+      position: relative;
+    }
+
+    .workflow-layer {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 80px;
+      width: 100%;
+      position: relative;
+      z-index: 2;
+      min-height: 80px;
+    }
+
+    .workflow-node {
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .workflow-node:hover { transform: translateY(-2px); }
+    .workflow-node.selected { box-shadow: 0 0 0 3px #58a6ff; }
+    .workflow-node.has-annotation::after {
+      content: attr(data-annotation-count);
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      width: 20px;
+      height: 20px;
+      background: #f0883e;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: bold;
+      color: white;
+    }
+
+    .workflow-node-start,
+    .workflow-node-end {
+      width: 140px;
+      height: 70px;
+      border-radius: 35px;
+      background: #21262d;
+      border: 3px solid #30363d;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+      color: #c9d1d9;
+    }
+
+    .workflow-node-start { border-color: #3fb950; background: #3fb95015; }
+    .workflow-node-end { border-color: #f85149; background: #f8514915; }
+
+    .workflow-node-process {
+      min-width: 180px;
+      max-width: 220px;
+      background: #21262d;
+      border: 2px solid #30363d;
+      border-radius: 8px;
+      padding: 16px 20px;
+    }
+
+    .workflow-node-process.phase-1 { border-left: 4px solid #58a6ff; }
+    .workflow-node-process.phase-2 { border-left: 4px solid #a371f7; }
+    .workflow-node-process.phase-3 { border-left: 4px solid #3fb950; }
+    .workflow-node-process.phase-4 { border-left: 4px solid #f0883e; }
+
+    .workflow-node-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 4px;
+      color: #f0f6fc;
+    }
+
+    .workflow-node-subtitle {
+      font-size: 11px;
+      color: #8b949e;
+    }
+
+    .workflow-node-decision {
+      width: 120px;
+      height: 120px;
+      background: #161b22;
+      border: 3px solid #f0883e;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: rotate(45deg);
+    }
+
+    .workflow-node-decision .decision-content {
+      transform: rotate(-45deg);
+      text-align: center;
+      padding: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #f0883e;
+      max-width: 80px;
+      line-height: 1.3;
+    }
+
+    .workflow-node-merge {
+      width: 40px;
+      height: 40px;
+      background: #21262d;
+      border: 3px solid #8b949e;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #8b949e;
+      font-size: 16px;
+    }
+
+    .workflow-edges {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .workflow-edge {
+      stroke: #58a6ff;
+      stroke-width: 2;
+      fill: none;
+      transition: stroke 0.2s;
+    }
+
+    .workflow-edge.loop {
+      stroke: #a371f7;
+      stroke-dasharray: 6, 4;
+    }
+
+    .workflow-edge.secondary {
+      stroke: #8b949e;
+    }
+
+    .workflow-edge-label {
+      font-size: 11px;
+      fill: #8b949e;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
   <header>
-    <h1>{{PROJECT_NAME}} - Architecture Explorer</h1>
+    <h1 id="header-title">Architecture Explorer</h1>
     <div class="header-actions">
       <button class="header-btn" id="export-btn">Export Annotations</button>
       <button class="header-btn" id="reset-btn">Reset All</button>
@@ -261,6 +504,7 @@
         <div class="view-tabs">
           <button class="view-tab active" data-view="workflow">Workflow</button>
           <button class="view-tab" data-view="dataflow">Data Flow</button>
+          <button class="view-tab" data-view="sequence">Sequence</button>
           <button class="view-tab" data-view="files">File Structure</button>
         </div>
         <div style="font-size: 11px; color: #8b949e;">Right-click to annotate</div>
@@ -312,10 +556,27 @@
     </div>
   </div>
 
+  <!-- External config: include before main script -->
+  <!-- Example: <script src="config-myproject.js"></script> -->
+  <!-- The config.js file should define: window.EXTERNAL_CONFIG = { projectName: "...", ... }; -->
+
   <script>
-    // ============ CONFIGURATION - INJECTED BY SKILL ============
-    const CONFIG = {{CONFIG_JSON}};
-    // ============ END CONFIGURATION ============
+    // ============ CONFIGURATION LOADER ============
+    (function init() {
+      // Load config: prefer external window.EXTERNAL_CONFIG, fall back to inline
+      function loadConfig() {
+        // Check for externally loaded config (via <script src="config.js">)
+        if (window.EXTERNAL_CONFIG) {
+          return window.EXTERNAL_CONFIG;
+        }
+
+        // No external config and no inline config - show error
+        alert('No configuration found. Either:\n1. Include a config script: <script src="config-name.js">\n2. Replace {{CONFIG_JSON}} with inline config');
+        throw new Error('No configuration found');
+      }
+
+      const CONFIG = loadConfig();
+    // ============ END CONFIGURATION LOADER ============
 
     const PROJECT_NAME = CONFIG.projectName;
     const INITIAL_COMPONENT_DATA = CONFIG.componentData;
@@ -323,6 +584,7 @@
     const DATA_FLOW_LAYERS = CONFIG.dataFlowLayers;
     const FILE_TREE_ENTRIES = CONFIG.fileTreeEntries;
     const WORKFLOW_STRUCTURE = CONFIG.workflowStructure || [];
+    const SEQUENCE_FLOWS = CONFIG.sequenceFlows || [];
 
     const STORAGE_KEY = 'architecture-explorer-' + PROJECT_NAME.toLowerCase().replace(/\s+/g, '-');
 
@@ -506,10 +768,428 @@
       canvas.appendChild(tree);
     }
 
+    function renderSequenceView() {
+      var canvas = document.getElementById('diagram-canvas');
+      canvas.textContent = '';
+      if (!SEQUENCE_FLOWS || SEQUENCE_FLOWS.length === 0) {
+        var placeholder = document.createElement('div');
+        placeholder.style.cssText = 'color: #8b949e; padding: 40px; text-align: center;';
+        placeholder.textContent = 'No sequence flows defined';
+        canvas.appendChild(placeholder);
+        return;
+      }
+      var diagram = document.createElement('div');
+      diagram.className = 'sequence-diagram';
+      SEQUENCE_FLOWS.forEach(function(flow) {
+        var flowContainer = createSequenceFlow(flow);
+        diagram.appendChild(flowContainer);
+      });
+      canvas.appendChild(diagram);
+    }
+
+    function createSequenceFlow(flow) {
+      var container = document.createElement('div');
+      container.className = 'sequence-flow';
+      if (!flow.participants || !Array.isArray(flow.participants) || flow.participants.length === 0) {
+        var error = document.createElement('div');
+        error.style.cssText = 'color: #f85149; padding: 12px;';
+        error.textContent = 'Invalid sequence flow: missing participants';
+        container.appendChild(error);
+        return container;
+      }
+      if (flow.name) {
+        var title = document.createElement('div');
+        title.className = 'sequence-flow-title';
+        title.textContent = flow.name;
+        container.appendChild(title);
+      }
+      var header = document.createElement('div');
+      header.className = 'participant-header';
+      header.style.gridTemplateColumns = 'repeat(' + flow.participants.length + ', 1fr)';
+      flow.participants.forEach(function(p) {
+        var box = document.createElement('div');
+        box.className = 'participant-box';
+        var data = state.componentData[p.id];
+        box.textContent = data ? data.title.split(' (')[0] : (p.name || p.id || 'Unknown');
+        box.dataset.participantId = p.id;
+        header.appendChild(box);
+      });
+      container.appendChild(header);
+      var timeline = document.createElement('div');
+      timeline.className = 'sequence-timeline';
+      timeline.style.gridTemplateColumns = 'repeat(' + flow.participants.length + ', 1fr)';
+      var messages = flow.messages || [];
+      var timelineHeight = Math.max(100, messages.length * 60 + 40);
+      timeline.style.minHeight = timelineHeight + 'px';
+      flow.participants.forEach(function(p) {
+        var column = document.createElement('div');
+        column.className = 'lifeline-column';
+        var lifeline = document.createElement('div');
+        lifeline.className = 'lifeline';
+        column.appendChild(lifeline);
+        timeline.appendChild(column);
+      });
+      var messagesLayer = document.createElement('div');
+      messagesLayer.className = 'messages-layer';
+      messages.forEach(function(msg) {
+        if (!msg.from || !msg.to) return;
+        var fromIdx = flow.participants.findIndex(function(p) { return p.id === msg.from; });
+        var toIdx = flow.participants.findIndex(function(p) { return p.id === msg.to; });
+        if (fromIdx === -1 || toIdx === -1) return;
+        var messageRow = document.createElement('div');
+        messageRow.className = 'message-row';
+        messageRow.style.gridTemplateColumns = 'repeat(' + flow.participants.length + ', 1fr)';
+        var arrow = createMessageArrow(msg, fromIdx, toIdx, flow.participants.length);
+        messageRow.appendChild(arrow);
+        messagesLayer.appendChild(messageRow);
+      });
+      timeline.appendChild(messagesLayer);
+      container.appendChild(timeline);
+      return container;
+    }
+
+    function createMessageArrow(message, fromIndex, toIndex, participantCount) {
+      var arrow = document.createElement('div');
+      arrow.className = 'message-arrow';
+      if (message.id) arrow.dataset.component = message.id;
+      if (message.type === 'return') arrow.classList.add('return');
+      if (message.type === 'async') arrow.classList.add('async');
+      var isSelfCall = fromIndex === toIndex;
+      if (isSelfCall) {
+        arrow.classList.add('self-call');
+        arrow.style.gridColumn = (fromIndex + 1) + ' / ' + (fromIndex + 2);
+      } else {
+        var colStart = Math.min(fromIndex, toIndex) + 1;
+        var colEnd = Math.max(fromIndex, toIndex) + 2;
+        arrow.style.gridColumn = colStart + ' / ' + colEnd;
+        if (fromIndex > toIndex) arrow.classList.add('reverse');
+      }
+      var label = document.createElement('span');
+      label.className = 'message-label';
+      label.textContent = message.label || '';
+      arrow.appendChild(label);
+      if (message.id) {
+        if (state.selectedComponent === message.id) arrow.classList.add('selected');
+        if (state.annotations[message.id] && state.annotations[message.id].length > 0) {
+          arrow.classList.add('has-annotation');
+        }
+        arrow.addEventListener('click', function() { selectComponent(message.id); });
+        arrow.addEventListener('contextmenu', function(e) { showContextMenu(e, message.id); });
+      }
+      return arrow;
+    }
+
+    // ========== Enhanced Workflow (V2) ==========
+
+    function computeWorkflowLayout(workflow) {
+      if (!workflow || !workflow.nodes || !workflow.edges) {
+        return { layers: [], nodePositions: new Map(), edgeRoutes: [], nodeMap: new Map() };
+      }
+
+      var adjList = new Map();
+      var inDegree = new Map();
+      var nodeMap = new Map();
+
+      workflow.nodes.forEach(function(node) {
+        nodeMap.set(node.id, node);
+        adjList.set(node.id, []);
+        inDegree.set(node.id, 0);
+      });
+
+      workflow.edges.forEach(function(edge) {
+        if (!adjList.has(edge.from) || !adjList.has(edge.to)) return;
+        // Skip loop edges for layer calculation
+        if (edge.type === 'loop') return;
+        adjList.get(edge.from).push(edge);
+        inDegree.set(edge.to, inDegree.get(edge.to) + 1);
+      });
+
+      // Topological sort with longest path layer assignment
+      var nodeLayer = new Map();
+      var queue = [];
+
+      // Find start nodes
+      workflow.nodes.forEach(function(node) {
+        if (inDegree.get(node.id) === 0 || node.type === 'start') {
+          queue.push({ id: node.id, layer: 0 });
+          nodeLayer.set(node.id, 0);
+        }
+      });
+
+      // Handle disconnected nodes (fallback)
+      if (queue.length === 0 && workflow.nodes.length > 0) {
+        queue.push({ id: workflow.nodes[0].id, layer: 0 });
+        nodeLayer.set(workflow.nodes[0].id, 0);
+      }
+
+      // Prevent infinite loops with malformed configs
+      var maxIterations = workflow.nodes.length * workflow.edges.length + workflow.nodes.length;
+      var iterations = 0;
+
+      while (queue.length > 0) {
+        if (++iterations > maxIterations) {
+          console.error('Workflow layout: exceeded max iterations, possible circular dependency');
+          break;
+        }
+        var current = queue.shift();
+        var edges = adjList.get(current.id) || [];
+        edges.forEach(function(edge) {
+          var childId = edge.to;
+          var childLayer = current.layer + 1;
+          if (!nodeLayer.has(childId) || nodeLayer.get(childId) < childLayer) {
+            nodeLayer.set(childId, childLayer);
+            queue.push({ id: childId, layer: childLayer });
+          }
+        });
+      }
+
+      // Handle any remaining unvisited nodes
+      workflow.nodes.forEach(function(node) {
+        if (!nodeLayer.has(node.id)) {
+          nodeLayer.set(node.id, 0);
+        }
+      });
+
+      // Build layers array
+      var maxLayer = 0;
+      nodeLayer.forEach(function(layer) { maxLayer = Math.max(maxLayer, layer); });
+
+      var layers = [];
+      for (var i = 0; i <= maxLayer; i++) layers.push([]);
+
+      nodeLayer.forEach(function(layer, nodeId) {
+        layers[layer].push(nodeId);
+      });
+
+      // Compute node positions
+      var nodePositions = new Map();
+      layers.forEach(function(layer, layerIndex) {
+        layer.forEach(function(nodeId, posIndex) {
+          nodePositions.set(nodeId, {
+            layer: layerIndex,
+            position: posIndex,
+            total: layer.length
+          });
+        });
+      });
+
+      // Compute edge routes (including loops)
+      var edgeRoutes = workflow.edges.map(function(edge) {
+        var fromPos = nodePositions.get(edge.from);
+        var toPos = nodePositions.get(edge.to);
+        if (!fromPos || !toPos) {
+          console.warn('Workflow edge skipped: node not found', {
+            edge: edge,
+            fromExists: !!fromPos,
+            toExists: !!toPos
+          });
+          return null;
+        }
+
+        return {
+          id: edge.id,
+          from: edge.from,
+          to: edge.to,
+          fromPos: fromPos,
+          toPos: toPos,
+          label: edge.label,
+          type: edge.type === 'loop' || toPos.layer <= fromPos.layer ? 'loop' : 'straight',
+          branch: edge.branch || null
+        };
+      }).filter(Boolean);
+
+      return { layers: layers, nodePositions: nodePositions, edgeRoutes: edgeRoutes, nodeMap: nodeMap };
+    }
+
+    function createArrowMarker(id, color) {
+      var marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+      marker.setAttribute('id', id);
+      marker.setAttribute('markerWidth', '10');
+      marker.setAttribute('markerHeight', '10');
+      marker.setAttribute('refX', '9');
+      marker.setAttribute('refY', '3');
+      marker.setAttribute('orient', 'auto');
+      var polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      polygon.setAttribute('points', '0 0, 10 3, 0 6');
+      polygon.setAttribute('fill', color);
+      marker.appendChild(polygon);
+      return marker;
+    }
+
+    function renderEnhancedWorkflow() {
+      var canvas = document.getElementById('diagram-canvas');
+      canvas.textContent = '';
+
+      var workflow = CONFIG.workflowStructureV2;
+      if (!workflow || !workflow.nodes || workflow.nodes.length === 0) {
+        renderWorkflowView();
+        return;
+      }
+
+      var layout = computeWorkflowLayout(workflow);
+      if (layout.layers.length === 0) {
+        var placeholder = document.createElement('div');
+        placeholder.style.cssText = 'color: #8b949e; padding: 40px; text-align: center;';
+        placeholder.textContent = 'No workflow nodes found';
+        canvas.appendChild(placeholder);
+        return;
+      }
+
+      var diagram = document.createElement('div');
+      diagram.className = 'workflow-diagram-v2';
+
+      var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'workflow-edges');
+      var defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      defs.appendChild(createArrowMarker('workflow-arrow', '#58a6ff'));
+      defs.appendChild(createArrowMarker('workflow-arrow-loop', '#a371f7'));
+      defs.appendChild(createArrowMarker('workflow-arrow-secondary', '#8b949e'));
+      svg.appendChild(defs);
+      diagram.appendChild(svg);
+
+      var nodeElements = new Map();
+
+      layout.layers.forEach(function(layerNodes, layerIndex) {
+        var layerDiv = document.createElement('div');
+        layerDiv.className = 'workflow-layer';
+        layerDiv.dataset.layer = layerIndex;
+
+        layerNodes.forEach(function(nodeId) {
+          var node = layout.nodeMap.get(nodeId);
+          var nodeEl = createWorkflowNode(node);
+          nodeElements.set(nodeId, nodeEl);
+          layerDiv.appendChild(nodeEl);
+        });
+
+        diagram.appendChild(layerDiv);
+      });
+
+      canvas.appendChild(diagram);
+
+      // Render edges after DOM layout
+      setTimeout(function() {
+        var diagramRect = diagram.getBoundingClientRect();
+        // Set explicit SVG dimensions to ensure proper rendering
+        svg.setAttribute('width', diagramRect.width);
+        svg.setAttribute('height', diagramRect.height);
+
+        var svgRect = diagram.getBoundingClientRect();
+        layout.edgeRoutes.forEach(function(route) {
+          var fromEl = nodeElements.get(route.from);
+          var toEl = nodeElements.get(route.to);
+          if (fromEl && toEl) {
+            var edge = createWorkflowEdge(route, fromEl, toEl, svgRect);
+            if (edge) svg.appendChild(edge);
+          }
+        });
+      }, 50);
+    }
+
+    function createWorkflowNode(node) {
+      var wrapper = document.createElement('div');
+      var nodeType = node.type || 'process';
+      wrapper.className = 'workflow-node workflow-node-' + nodeType;
+      if (node.phase) wrapper.classList.add(node.phase);
+
+      var componentId = node.componentId || node.id;
+      wrapper.dataset.component = componentId;
+
+      if (state.selectedComponent === componentId) {
+        wrapper.classList.add('selected');
+      }
+      if (state.annotations[componentId] && state.annotations[componentId].length > 0) {
+        wrapper.classList.add('has-annotation');
+        wrapper.dataset.annotationCount = state.annotations[componentId].length;
+      }
+
+      wrapper.addEventListener('click', function() { selectComponent(componentId); });
+      wrapper.addEventListener('contextmenu', function(e) { showContextMenu(e, componentId); });
+
+      if (nodeType === 'decision') {
+        var content = document.createElement('div');
+        content.className = 'decision-content';
+        content.textContent = node.label || '?';
+        wrapper.appendChild(content);
+      } else if (nodeType === 'merge') {
+        wrapper.textContent = '\u2295';
+      } else if (nodeType === 'start' || nodeType === 'end') {
+        wrapper.textContent = node.label || (nodeType === 'start' ? 'Start' : 'End');
+      } else {
+        var title = document.createElement('div');
+        title.className = 'workflow-node-title';
+        title.textContent = node.label || 'Process';
+        wrapper.appendChild(title);
+
+        if (state.componentData[componentId]) {
+          var subtitle = document.createElement('div');
+          subtitle.className = 'workflow-node-subtitle';
+          subtitle.textContent = state.componentData[componentId].badgeLabel || '';
+          wrapper.appendChild(subtitle);
+        }
+      }
+
+      return wrapper;
+    }
+
+    function createWorkflowEdge(route, fromEl, toEl, svgRect) {
+      var fromRect = fromEl.getBoundingClientRect();
+      var toRect = toEl.getBoundingClientRect();
+
+      var fromX = fromRect.left + fromRect.width / 2 - svgRect.left;
+      var fromY = fromRect.bottom - svgRect.top;
+      var toX = toRect.left + toRect.width / 2 - svgRect.left;
+      var toY = toRect.top - svgRect.top;
+
+      var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('class', 'workflow-edge');
+
+      var d;
+      if (route.type === 'loop') {
+        // Curved loop-back path on the right side
+        var controlOffset = 100;
+        var controlX = Math.max(fromX, toX) + controlOffset;
+        d = 'M ' + fromX + ' ' + fromY + ' C ' + controlX + ' ' + fromY + ', ' + controlX + ' ' + toY + ', ' + toX + ' ' + toY;
+        path.classList.add('loop');
+        path.setAttribute('marker-end', 'url(#workflow-arrow-loop)');
+      } else {
+        // Straight or angled path
+        if (Math.abs(fromX - toX) < 10) {
+          d = 'M ' + fromX + ' ' + fromY + ' L ' + toX + ' ' + toY;
+        } else {
+          var midY = (fromY + toY) / 2;
+          d = 'M ' + fromX + ' ' + fromY + ' L ' + fromX + ' ' + midY + ' L ' + toX + ' ' + midY + ' L ' + toX + ' ' + toY;
+        }
+
+        if (route.branch === 'secondary') {
+          path.classList.add('secondary');
+          path.setAttribute('marker-end', 'url(#workflow-arrow-secondary)');
+        } else {
+          path.setAttribute('marker-end', 'url(#workflow-arrow)');
+        }
+      }
+
+      path.setAttribute('d', d);
+
+      if (route.id) {
+        path.dataset.edgeId = route.id;
+      }
+
+      return path;
+    }
+
+    // ========== End Enhanced Workflow ==========
+
     function renderCurrentView() {
-      if (state.currentView === 'workflow') renderWorkflowView();
+      if (state.currentView === 'workflow') {
+        if (CONFIG.workflowStructureV2) {
+          renderEnhancedWorkflow();
+        } else {
+          renderWorkflowView();
+        }
+      }
       else if (state.currentView === 'dataflow') renderDataFlowView();
       else if (state.currentView === 'files') renderFilesView();
+      else if (state.currentView === 'sequence') renderSequenceView();
     }
 
     function createNodeBox(id, phaseClass) {
@@ -567,19 +1247,28 @@
       var detailContent = document.getElementById('detail-content');
       var detailTitle = document.getElementById('detail-title');
       var detailBadge = document.getElementById('detail-badge');
-      if (!data) {
+
+      // Check if we have annotations for this component even without componentData
+      var annotations = state.annotations[id] || [];
+
+      if (!data && annotations.length === 0) {
         detailTitle.textContent = 'Select a component';
         detailBadge.style.display = 'none';
         renderEmptyState();
         return;
       }
-      detailTitle.textContent = data.title;
-      detailBadge.textContent = data.badgeLabel;
-      detailBadge.className = 'details-badge badge-' + data.badge;
-      detailBadge.style.display = 'inline';
+
+      // Show title from componentData or use the ID
+      detailTitle.textContent = data ? data.title : id;
+      if (data) {
+        detailBadge.textContent = data.badgeLabel;
+        detailBadge.className = 'details-badge badge-' + data.badge;
+        detailBadge.style.display = 'inline';
+      } else {
+        detailBadge.style.display = 'none';
+      }
       detailContent.textContent = '';
 
-      var annotations = state.annotations[id] || [];
       if (annotations.length > 0) {
         var annoSection = document.createElement('div');
         annoSection.className = 'annotations-section';
@@ -644,55 +1333,58 @@
         detailContent.appendChild(annoSection);
       }
 
-      if (data.file) {
-        var fileDiv = document.createElement('div');
-        fileDiv.className = 'detail-file';
-        fileDiv.textContent = data.file;
-        detailContent.appendChild(fileDiv);
-      }
+      // Only show component details if we have componentData
+      if (data) {
+        if (data.file) {
+          var fileDiv = document.createElement('div');
+          fileDiv.className = 'detail-file';
+          fileDiv.textContent = data.file;
+          detailContent.appendChild(fileDiv);
+        }
 
-      var descSection = document.createElement('div');
-      descSection.className = 'detail-section';
-      var descTitle = document.createElement('div');
-      descTitle.className = 'detail-section-title';
-      descTitle.textContent = 'Description';
-      descSection.appendChild(descTitle);
-      var descText = document.createElement('p');
-      descText.className = 'detail-text';
-      descText.textContent = data.description;
-      descSection.appendChild(descText);
-      detailContent.appendChild(descSection);
+        var descSection = document.createElement('div');
+        descSection.className = 'detail-section';
+        var descTitle = document.createElement('div');
+        descTitle.className = 'detail-section-title';
+        descTitle.textContent = 'Description';
+        descSection.appendChild(descTitle);
+        var descText = document.createElement('p');
+        descText.className = 'detail-text';
+        descText.textContent = data.description;
+        descSection.appendChild(descText);
+        detailContent.appendChild(descSection);
 
-      if (data.responsibilities) {
-        var respSection = document.createElement('div');
-        respSection.className = 'detail-section';
-        var respTitle = document.createElement('div');
-        respTitle.className = 'detail-section-title';
-        respTitle.textContent = 'Responsibilities';
-        respSection.appendChild(respTitle);
-        var respList = document.createElement('ul');
-        respList.className = 'detail-list';
-        data.responsibilities.forEach(function(r) {
-          var li = document.createElement('li');
-          li.textContent = r;
-          respList.appendChild(li);
-        });
-        respSection.appendChild(respList);
-        detailContent.appendChild(respSection);
-      }
+        if (data.responsibilities) {
+          var respSection = document.createElement('div');
+          respSection.className = 'detail-section';
+          var respTitle = document.createElement('div');
+          respTitle.className = 'detail-section-title';
+          respTitle.textContent = 'Responsibilities';
+          respSection.appendChild(respTitle);
+          var respList = document.createElement('ul');
+          respList.className = 'detail-list';
+          data.responsibilities.forEach(function(r) {
+            var li = document.createElement('li');
+            li.textContent = r;
+            respList.appendChild(li);
+          });
+          respSection.appendChild(respList);
+          detailContent.appendChild(respSection);
+        }
 
-      if (data.code) {
-        var codeSection = document.createElement('div');
-        codeSection.className = 'detail-section';
-        var codeTitle = document.createElement('div');
-        codeTitle.className = 'detail-section-title';
-        codeTitle.textContent = 'Interface / Code';
-        codeSection.appendChild(codeTitle);
-        var codePre = document.createElement('pre');
-        codePre.className = 'detail-code';
-        codePre.textContent = data.code;
-        codeSection.appendChild(codePre);
-        detailContent.appendChild(codeSection);
+        if (data.code) {
+          var codeSection = document.createElement('div');
+          codeSection.className = 'detail-section';
+          var codeTitle = document.createElement('div');
+          codeTitle.className = 'detail-section-title';
+          codeTitle.textContent = 'Interface / Code';
+          codeSection.appendChild(codeTitle);
+          var codePre = document.createElement('pre');
+          codePre.className = 'detail-code';
+          codePre.textContent = data.code;
+          codeSection.appendChild(codePre);
+          detailContent.appendChild(codeSection);
+        }
       }
 
       if (annotations.length === 0) {
@@ -837,11 +1529,17 @@
     });
 
     var wasLoaded = loadState();
+
+    // Set header title from config
+    document.getElementById('header-title').textContent = PROJECT_NAME + ' - Architecture Explorer';
+    document.title = PROJECT_NAME + ' - Architecture Explorer';
+
     renderTree();
     renderCurrentView();
     updateAnnotationsSummary();
     updateDetails();
     if (wasLoaded) console.log('Restored saved state from localStorage');
+    })(); // End init
   </script>
 </body>
 </html>

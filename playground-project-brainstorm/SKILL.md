@@ -94,6 +94,40 @@ const CONFIG = {
 
 ### Phase 3: Generate HTML
 
+**Option A: External Config (Recommended - saves ~90% tokens)**
+
+This approach separates config from template, reducing token usage significantly.
+
+1. Write the CONFIG object as a JSON file:
+   ```bash
+   # Write to docs/playground/config-{projectname}.json
+   ```
+
+2. Convert JSON to JavaScript config file:
+   ```bash
+   node -e "const fs=require('fs'); const c=JSON.parse(fs.readFileSync('docs/playground/config-{projectname}.json')); fs.writeFileSync('docs/playground/config-{projectname}.js', 'window.EXTERNAL_CONFIG = ' + JSON.stringify(c, null, 2) + ';');"
+   ```
+
+3. Copy the template (no modifications needed):
+   ```bash
+   cp ~/.claude/skills/playground-project-brainstorm/templates/brainstorm-explorer.html docs/playground/
+   ```
+
+4. Add script tag to load config before main script. Edit `docs/playground/brainstorm-explorer.html`:
+   ```html
+   <!-- Add this line before the main <script> tag -->
+   <script src="config-{projectname}.js"></script>
+   ```
+
+5. Open in browser:
+   ```bash
+   open docs/playground/brainstorm-explorer.html
+   ```
+
+**Option B: Inline Config (Legacy)**
+
+For backwards compatibility or single-file distribution:
+
 1. Read the template file:
    ```
    playground-project-brainstorm/templates/brainstorm-explorer.html
@@ -101,7 +135,10 @@ const CONFIG = {
 
 2. Replace placeholders:
    - `{{PROJECT_NAME}}` with project name
-   - `{{CONFIG_JSON}}` with JSON.stringify(CONFIG) (the config object)
+   - Modify the config loader to use inline config by replacing the `loadConfig()` function body with:
+     ```javascript
+     return {{CONFIG_JSON}};
+     ```
 
 3. Write to `brainstorm-explorer.html` in project root
 
