@@ -162,19 +162,19 @@ const CONFIG = {
 
 ### Phase 3: Generate Output
 
-**Option A: External Config (Recommended - saves tokens)**
-
-1. Write the CONFIG object as a JSON file:
+1. Write the CONFIG object directly as a JS file:
    ```
-   docs/playground/config-{projectname}.json
+   docs/playground/config-{projectname}.js
    ```
 
-2. Convert JSON to JS using this command:
-   ```bash
-   node -e "const fs=require('fs'); const c=JSON.parse(fs.readFileSync('docs/playground/config-{projectname}.json')); fs.writeFileSync('docs/playground/config-{projectname}.js', 'window.EXTERNAL_CONFIG = ' + JSON.stringify(c, null, 2) + ';');"
+   The file should contain:
+   ```javascript
+   window.EXTERNAL_CONFIG = {
+     // ... your CONFIG object here
+   };
    ```
 
-3. Copy the template and add the config script tag:
+2. Copy the template and add the config script tag:
    ```bash
    cp ~/.claude/skills/playground-project-architecture/templates/architecture-explorer.html docs/playground/
    ```
@@ -184,25 +184,7 @@ const CONFIG = {
    <script src="config-{projectname}.js"></script>
    ```
 
-4. Open in browser:
-   ```bash
-   open docs/playground/architecture-explorer.html
-   ```
-
-**Option B: Inline Config (Legacy)**
-
-1. Read the template file:
-   ```
-   playground-project-architecture/templates/architecture-explorer.html
-   ```
-
-2. Replace placeholders:
-   - `{{PROJECT_NAME}}` with project name
-   - `{{CONFIG_JSON}}` with JSON.stringify(CONFIG) (the config object)
-
-3. Write to `docs/playground/architecture-explorer.html`
-
-4. Open in browser:
+3. Open in browser:
    ```bash
    open docs/playground/architecture-explorer.html
    ```

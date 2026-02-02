@@ -1135,10 +1135,36 @@
       var fromRect = fromEl.getBoundingClientRect();
       var toRect = toEl.getBoundingClientRect();
 
-      var fromX = fromRect.left + fromRect.width / 2 - svgRect.left;
-      var fromY = fromRect.bottom - svgRect.top;
+      // Check if source is a decision node (diamond shape)
+      var isFromDecision = fromEl.classList.contains('workflow-node-decision');
+
+      var fromCenterX = fromRect.left + fromRect.width / 2 - svgRect.left;
+      var fromCenterY = fromRect.top + fromRect.height / 2 - svgRect.top;
       var toX = toRect.left + toRect.width / 2 - svgRect.left;
       var toY = toRect.top - svgRect.top;
+
+      var fromX, fromY;
+
+      if (isFromDecision) {
+        // For decision nodes (diamond), calculate exit points based on direction
+        // Diamond has corners at top, bottom, left, right of the center
+        var halfWidth = fromRect.width / 2;
+        var halfHeight = fromRect.height / 2;
+
+        if (route.branch === 'secondary') {
+          // Secondary branch exits from the right corner of the diamond
+          fromX = fromCenterX + halfWidth * 0.7;  // Right corner (adjusted for rotation)
+          fromY = fromCenterY;
+        } else {
+          // Primary branch exits from the bottom corner of the diamond
+          fromX = fromCenterX;
+          fromY = fromCenterY + halfHeight * 0.7;  // Bottom corner (adjusted for rotation)
+        }
+      } else {
+        // Regular nodes: exit from bottom center
+        fromX = fromCenterX;
+        fromY = fromRect.bottom - svgRect.top;
+      }
 
       var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       path.setAttribute('class', 'workflow-edge');
@@ -1152,10 +1178,16 @@
         path.classList.add('loop');
         path.setAttribute('marker-end', 'url(#workflow-arrow-loop)');
       } else {
-        // Straight or angled path
-        if (Math.abs(fromX - toX) < 10) {
+        if (isFromDecision && route.branch === 'secondary') {
+          // Secondary branch from decision: curve from right side to target
+          var midX = fromX + 40;  // Control point offset
+          var midY = (fromY + toY) / 2;
+          d = 'M ' + fromX + ' ' + fromY + ' Q ' + midX + ' ' + fromY + ', ' + midX + ' ' + midY + ' Q ' + midX + ' ' + toY + ', ' + toX + ' ' + toY;
+        } else if (Math.abs(fromX - toX) < 10) {
+          // Straight vertical path
           d = 'M ' + fromX + ' ' + fromY + ' L ' + toX + ' ' + toY;
         } else {
+          // Angled path with midpoint
           var midY = (fromY + toY) / 2;
           d = 'M ' + fromX + ' ' + fromY + ' L ' + fromX + ' ' + midY + ' L ' + toX + ' ' + midY + ' L ' + toX + ' ' + toY;
         }
