@@ -45,6 +45,12 @@
       content: ''; position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
       width: 8px; height: 8px; border-radius: 50%; background: #f0883e;
     }
+    .tree-item.loading::before {
+      content: ''; position: absolute; right: 24px; top: 50%; transform: translateY(-50%);
+      width: 12px; height: 12px; border: 2px solid #30363d; border-top-color: #58a6ff;
+      border-radius: 50%; animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
     .tree-item .icon {
       width: 16px; height: 16px; border-radius: 3px; display: flex;
       align-items: center; justify-content: center; font-size: 10px; font-weight: bold;
@@ -505,6 +511,79 @@
       display: inline-block;
       min-width: 100%;
     }
+
+    /* ========== AI Bridge Integration ========== */
+    .bridge-status {
+      position: fixed; top: 12px; right: 20px; display: flex; align-items: center;
+      gap: 6px; padding: 6px 12px; border-radius: 6px; font-size: 11px;
+      background: #21262d; border: 1px solid #30363d; z-index: 200;
+    }
+    .bridge-status .status-dot {
+      width: 8px; height: 8px; border-radius: 50%; transition: background 0.3s;
+    }
+    .bridge-status.connected .status-dot { background: #3fb950; }
+    .bridge-status.disconnected .status-dot { background: #f85149; }
+    .bridge-status.connecting .status-dot { background: #f0883e; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    .ai-actions-menu {
+      position: absolute; background: #161b22; border: 1px solid #30363d;
+      border-radius: 8px; padding: 8px; z-index: 300; min-width: 180px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4); display: none;
+    }
+    .ai-actions-menu.visible { display: block; }
+    .ai-action-item {
+      display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+      border-radius: 6px; cursor: pointer; font-size: 12px; transition: background 0.15s;
+    }
+    .ai-action-item:hover { background: #21262d; }
+    .ai-action-item .icon { font-size: 14px; }
+    .ai-action-item .label { flex: 1; }
+    .ai-action-item .desc { font-size: 10px; color: #8b949e; }
+    .ai-action-item.disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .node-loading {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(22, 27, 34, 0.9); display: flex; flex-direction: column;
+      align-items: center; justify-content: center; border-radius: 6px; gap: 8px;
+    }
+    .node-loading .spinner {
+      width: 20px; height: 20px; border: 2px solid #30363d;
+      border-top-color: #58a6ff; border-radius: 50%; animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .node-loading .text { font-size: 11px; color: #8b949e; }
+
+    /* AI Annotation styling */
+    .annotation-item.ai-annotation { border-left: 3px solid #a371f7; }
+    .annotation-type.ai { background: #a371f7; }
+    .annotation-ai-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10px; color: #a371f7; margin-left: 8px;
+    }
+    .annotation-collapsed { max-height: 60px; overflow: hidden; position: relative; }
+    .annotation-collapsed::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+      height: 30px; background: linear-gradient(transparent, #21262d);
+    }
+    .annotation-expand-btn {
+      background: transparent; border: 1px solid #30363d; border-radius: 4px;
+      color: #8b949e; padding: 4px 8px; font-size: 10px; cursor: pointer; margin-top: 4px;
+    }
+    .annotation-expand-btn:hover { background: #21262d; color: #c9d1d9; }
+
+    /* Markdown rendering styles for AI responses */
+    .annotation-text.markdown h2 { font-size: 14px; font-weight: 600; color: #f0f6fc; margin: 12px 0 8px 0; padding-bottom: 4px; border-bottom: 1px solid #30363d; }
+    .annotation-text.markdown h3 { font-size: 13px; font-weight: 600; color: #e6edf3; margin: 10px 0 6px 0; }
+    .annotation-text.markdown h4 { font-size: 12px; font-weight: 600; color: #c9d1d9; margin: 8px 0 4px 0; }
+    .annotation-text.markdown p { margin: 6px 0; }
+    .annotation-text.markdown ul, .annotation-text.markdown ol { margin: 6px 0; padding-left: 20px; }
+    .annotation-text.markdown li { margin: 3px 0; }
+    .annotation-text.markdown code { background: #0d1117; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', Monaco, monospace; font-size: 11px; color: #f0883e; }
+    .annotation-text.markdown pre { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 12px; margin: 8px 0; overflow-x: auto; }
+    .annotation-text.markdown pre code { background: none; padding: 0; color: #c9d1d9; display: block; white-space: pre; }
+    .annotation-text.markdown strong { color: #f0f6fc; font-weight: 600; }
+    .annotation-text.markdown em { font-style: italic; color: #8b949e; }
   </style>
 </head>
 <body>
@@ -516,6 +595,17 @@
       <button class="header-btn" id="clear-btn">Clear Annotations</button>
     </div>
   </header>
+
+  <!-- AI Bridge Status Indicator -->
+  <div id="bridge-status" class="bridge-status disconnected">
+    <span class="status-dot"></span>
+    <span class="status-text">AI Disconnected</span>
+  </div>
+
+  <!-- AI Actions Menu (positioned dynamically) -->
+  <div id="ai-actions-menu" class="ai-actions-menu">
+    <!-- Populated dynamically based on graph type -->
+  </div>
 
   <div class="annotations-summary" id="annotations-summary">
     <div class="annotations-summary-title">Annotations</div>
@@ -561,6 +651,11 @@
   </div>
 
   <div class="context-menu" id="context-menu">
+    <div class="context-menu-item ai-action" data-ai-action="explain"><span class="icon">📖</span> AI: Explain</div>
+    <div class="context-menu-item ai-action" data-ai-action="dependencies"><span class="icon">🔀</span> AI: Dependencies</div>
+    <div class="context-menu-item ai-action" data-ai-action="improve"><span class="icon">✨</span> AI: Improvements</div>
+    <div class="context-menu-item ai-action" data-ai-action="security"><span class="icon">🔒</span> AI: Security</div>
+    <div class="context-menu-divider"></div>
     <div class="context-menu-item" data-action="question"><span class="icon">?</span> Add Question</div>
     <div class="context-menu-item" data-action="comment"><span class="icon">C</span> Add Comment</div>
     <div class="context-menu-item" data-action="edit"><span class="icon">E</span> Mark for Edit</div>
@@ -593,6 +688,96 @@
   <!-- External config: include before main script -->
   <!-- Example: <script src="config-myproject.js"></script> -->
   <!-- The config.js file should define: window.EXTERNAL_CONFIG = { projectName: "...", ... }; -->
+
+  <!-- Sample config for testing (remove in production) -->
+  <script src="sample-config.js" onerror="console.log('No sample-config.js found, expecting external config')"></script>
+
+  <!-- Bridge Client for AI Connectivity (inlined for self-contained templates) -->
+  <script>
+(function() {
+  'use strict';
+
+  const BridgeClient = {
+    baseUrl: 'http://localhost:4242',
+    _connected: false,
+    _onStatusChange: null,
+
+    async checkConnection() {
+      try {
+        const response = await fetch(this.baseUrl + '/status');
+        const ok = response.ok;
+        this._setConnected(ok);
+        return ok;
+      } catch (e) {
+        this._setConnected(false);
+        return false;
+      }
+    },
+
+    /**
+     * Send action and wait for Claude's response.
+     * The server holds the connection until Claude responds.
+     */
+    async sendAndWait(action, nodeId, graphType, context) {
+      const response = await fetch(this.baseUrl + '/prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, nodeId, graphType, context })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Request failed');
+      }
+
+      return response.json();
+    },
+
+    _setConnected(connected) {
+      const changed = this._connected !== connected;
+      this._connected = connected;
+      if (changed && this._onStatusChange) {
+        this._onStatusChange(connected);
+      }
+    },
+
+    onStatusChange(callback) {
+      this._onStatusChange = callback;
+    },
+
+    isConnected() {
+      return this._connected;
+    },
+
+    startConnectionMonitor(interval = 10000) {
+      this.checkConnection();
+      setInterval(() => this.checkConnection(), interval);
+    }
+  };
+
+  // AI prompt generator
+  function generateAIPrompt(action, graphType, context) {
+    const { nodeTitle, nodeDescription, projectName, file } = context;
+
+    if (graphType === 'architecture') {
+      switch (action) {
+        case 'explain':
+          return `Explain what ${nodeTitle} does.${file ? ' File: ' + file : ''}${nodeDescription ? '\n' + nodeDescription : ''}\nProject: ${projectName}`;
+        case 'dependencies':
+          return `What are the dependencies of ${nodeTitle}?${file ? ' File: ' + file : ''}\nProject: ${projectName}`;
+        case 'improve':
+          return `Suggest improvements for ${nodeTitle}.${file ? ' File: ' + file : ''}\nProject: ${projectName}`;
+        case 'security':
+          return `Security concerns for ${nodeTitle}?${file ? ' File: ' + file : ''}\nProject: ${projectName}`;
+      }
+    }
+    return `Analyze "${nodeTitle}" in ${projectName}.`;
+  }
+
+  window.BridgeClient = BridgeClient;
+  window.generateAIPrompt = generateAIPrompt;
+})();
+  </script>
 
   <script>
     // ============ CONFIGURATION LOADER ============
@@ -628,7 +813,8 @@
       selectedComponent: null,
       currentView: 'workflow',
       annotations: {},
-      contextTarget: null
+      contextTarget: null,
+      pendingAIRequests: {}  // Track pending AI requests by nodeId
     };
 
     // ============ ZOOM MANAGEMENT ============
@@ -745,6 +931,74 @@
     };
     // ============ END ZOOM MANAGEMENT ============
 
+    // ============ LIGHTWEIGHT MARKDOWN PARSER ============
+    function parseMarkdown(text) {
+      if (!text) return '';
+
+      // Escape HTML to prevent XSS
+      var escaped = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      // Process code blocks first (```...```)
+      escaped = escaped.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
+        return '<pre><code>' + code.trim() + '</code></pre>';
+      });
+
+      // Process inline code (`...`)
+      escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      // Process headers (## and ###)
+      escaped = escaped.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+      escaped = escaped.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+      escaped = escaped.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+
+      // Process bold (**text**)
+      escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+      // Process italic (*text*)
+      escaped = escaped.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+      // Process unordered lists
+      escaped = escaped.replace(/^- (.+)$/gm, '<li>$1</li>');
+      escaped = escaped.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+
+      // Process numbered lists
+      escaped = escaped.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+
+      // Wrap remaining lines in paragraphs (skip if already wrapped in tags)
+      var lines = escaped.split('\n');
+      var result = [];
+      var inList = false;
+
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (!line) {
+          result.push('');
+          continue;
+        }
+        // Skip lines already wrapped in block tags
+        if (line.match(/^<(h[234]|pre|ul|ol|li|p)/) || line.match(/<\/(h[234]|pre|ul|ol)>$/)) {
+          result.push(line);
+        } else if (line.match(/<\/li>$/)) {
+          result.push(line);
+        } else {
+          result.push('<p>' + line + '</p>');
+        }
+      }
+
+      // Clean up empty paragraphs and fix list wrapping
+      var html = result.join('\n')
+        .replace(/<p><\/p>/g, '')
+        .replace(/<\/ul>\s*<ul>/g, '')
+        .replace(/<p>(<ul>)/g, '$1')
+        .replace(/(<\/ul>)<\/p>/g, '$1');
+
+      return html;
+    }
+    // ============ END MARKDOWN PARSER ============
+
     function saveState() {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ annotations: state.annotations, version: 1 }));
@@ -810,6 +1064,7 @@
           itemDiv.className = 'tree-item';
           if (state.selectedComponent === item.id) itemDiv.classList.add('active');
           if (state.annotations[item.id] && state.annotations[item.id].length > 0) itemDiv.classList.add('has-annotation');
+          if (state.pendingAIRequests[item.id]) itemDiv.classList.add('loading');
           itemDiv.dataset.component = item.id;
           var icon = document.createElement('span');
           icon.className = 'icon ' + item.iconClass;
@@ -878,6 +1133,8 @@
           box.textContent = data.title.split(' (')[0];
           box.addEventListener('click', function() { selectComponent(id); });
           box.addEventListener('contextmenu', function(e) { showContextMenu(e, id); });
+          // Add loading state if AI request pending
+          renderNodeLoadingState(box, id);
           boxes.appendChild(box);
         });
         layerDiv.appendChild(boxes);
@@ -1024,6 +1281,8 @@
         }
         arrow.addEventListener('click', function() { selectComponent(message.id); });
         arrow.addEventListener('contextmenu', function(e) { showContextMenu(e, message.id); });
+        // Add loading state if AI request pending
+        renderNodeLoadingState(arrow, message.id);
       }
       return arrow;
     }
@@ -1277,6 +1536,9 @@
         }
       }
 
+      // Add loading state if AI request pending
+      renderNodeLoadingState(wrapper, componentId);
+
       return wrapper;
     }
 
@@ -1396,6 +1658,8 @@
       box.appendChild(subtitle);
       box.addEventListener('click', function() { selectComponent(id); });
       box.addEventListener('contextmenu', function(e) { showContextMenu(e, id); });
+      // Add loading state if AI request pending
+      renderNodeLoadingState(box, id);
       return box;
     }
 
@@ -1455,17 +1719,29 @@
         annoSection.className = 'annotations-section';
         var annoTitle = document.createElement('div');
         annoTitle.className = 'detail-section-title';
-        annoTitle.textContent = 'Your Annotations (' + annotations.length + ')';
+        annoTitle.textContent = 'Annotations (' + annotations.length + ')';
         annoSection.appendChild(annoTitle);
         annotations.forEach(function(a, idx) {
           var item = document.createElement('div');
-          item.className = 'annotation-item';
+          item.className = 'annotation-item' + (a.type === 'ai' ? ' ai-annotation' : '');
           var header = document.createElement('div');
           header.className = 'annotation-header';
           var type = document.createElement('span');
           type.className = 'annotation-type ' + a.type;
-          type.textContent = a.type;
+          if (a.type === 'ai') {
+            type.textContent = 'AI: ' + (a.action || 'response');
+          } else {
+            type.textContent = a.type;
+          }
           header.appendChild(type);
+          if (a.type === 'ai' && a.timestamp) {
+            var timeAgo = document.createElement('span');
+            timeAgo.className = 'annotation-ai-badge';
+            var elapsed = Date.now() - a.timestamp;
+            var mins = Math.floor(elapsed / 60000);
+            timeAgo.textContent = mins < 1 ? 'just now' : mins + 'm ago';
+            header.appendChild(timeAgo);
+          }
           var deleteBtn = document.createElement('button');
           deleteBtn.className = 'annotation-delete';
           deleteBtn.textContent = 'x';
@@ -1476,10 +1752,29 @@
           });
           header.appendChild(deleteBtn);
           item.appendChild(header);
-          var text = document.createElement('div');
-          text.className = 'annotation-text';
-          text.textContent = a.text;
-          item.appendChild(text);
+          var textContainer = document.createElement('div');
+          textContainer.className = 'annotation-text' + (a.collapsed ? ' annotation-collapsed' : '');
+          // Use markdown rendering for AI responses, plain text for user annotations
+          if (a.type === 'ai') {
+            textContainer.classList.add('markdown');
+            // parseMarkdown escapes HTML before processing, safe to use innerHTML
+            textContainer.innerHTML = parseMarkdown(a.text);
+          } else {
+            textContainer.textContent = a.text;
+          }
+          item.appendChild(textContainer);
+          // Add expand/collapse button for long AI responses
+          if (a.type === 'ai' && a.text && a.text.length > 200) {
+            var expandBtn = document.createElement('button');
+            expandBtn.className = 'annotation-expand-btn';
+            expandBtn.textContent = a.collapsed ? 'Show more' : 'Show less';
+            expandBtn.addEventListener('click', function() {
+              a.collapsed = !a.collapsed;
+              saveState();
+              updateDetails();
+            });
+            item.appendChild(expandBtn);
+          }
           if (a.prompt) {
             var promptHeader = document.createElement('div');
             promptHeader.className = 'annotation-prompt-header';
@@ -1598,6 +1893,8 @@
 
     document.querySelectorAll('.context-menu-item').forEach(function(item) {
       item.addEventListener('click', function() {
+        // Skip AI actions - they have their own handler
+        if (item.classList.contains('ai-action')) return;
         var action = item.dataset.action;
         if (action === 'view') selectComponent(state.contextTarget);
         else openAnnotationModal(state.contextTarget, action);
@@ -1627,6 +1924,11 @@
         if (!state.annotations[state.contextTarget]) state.annotations[state.contextTarget] = [];
         state.annotations[state.contextTarget].push({ type: type, text: text, prompt: prompt, timestamp: Date.now() });
         saveState(); updateAnnotationsSummary(); renderCurrentView(); renderTree(); selectComponent(state.contextTarget);
+
+        // If it's a question, also send to AI
+        if (type === 'question' && bridgeAvailable) {
+          triggerAIQuestion(state.contextTarget, text);
+        }
       }
       document.getElementById('modal-overlay').classList.remove('visible');
     });
@@ -1741,8 +2043,198 @@
     });
     // ============ END ZOOM EVENT LISTENERS ============
 
+    // ============ AI BRIDGE INTEGRATION ============
+    var bridgeAvailable = false;
+
+    function updateBridgeStatus(connected) {
+      bridgeAvailable = connected;
+      var statusEl = document.getElementById('bridge-status');
+      var textEl = statusEl.querySelector('.status-text');
+      statusEl.classList.remove('connected', 'disconnected', 'connecting');
+      statusEl.classList.add(connected ? 'connected' : 'disconnected');
+      textEl.textContent = connected ? 'AI Connected' : 'AI Disconnected';
+
+      // Update AI action items visibility
+      document.querySelectorAll('.context-menu-item.ai-action').forEach(function(item) {
+        item.classList.toggle('disabled', !connected);
+      });
+    }
+
+    function initBridgeClient() {
+      if (!window.BridgeClient) {
+        console.log('Bridge client not available - AI features disabled');
+        updateBridgeStatus(false);
+        return;
+      }
+
+      // Set up connection monitoring
+      window.BridgeClient.onStatusChange(updateBridgeStatus);
+      window.BridgeClient.startConnectionMonitor(10000);
+
+      // Set up AI action handlers
+      setupAIActionHandlers();
+    }
+
+    function setupAIActionHandlers() {
+      document.querySelectorAll('.context-menu-item.ai-action').forEach(function(item) {
+        item.addEventListener('click', function(e) {
+          if (!bridgeAvailable) {
+            alert('AI is not connected. Please ensure Claude Code is running with the playground-bridge MCP server.');
+            return;
+          }
+          var action = item.dataset.aiAction;
+          var componentId = state.contextTarget;
+          if (componentId) {
+            triggerAIAction(action, componentId);
+          }
+          hideContextMenu();
+        });
+      });
+    }
+
+    function triggerAIAction(action, componentId) {
+      if (state.pendingAIRequests[componentId]) {
+        console.log('AI request already pending for', componentId);
+        return;
+      }
+
+      var data = state.componentData[componentId] || { title: componentId };
+      var context = {
+        nodeTitle: data.title,
+        nodeDescription: data.description || '',
+        projectName: PROJECT_NAME,
+        file: data.file || '',
+        neighbors: getNeighborNodes(componentId)
+      };
+
+      state.pendingAIRequests[componentId] = true;
+      renderCurrentView(); // Show loading spinner
+
+      if (window.generateAIPrompt) {
+        context.prompt = window.generateAIPrompt(action, 'architecture', context);
+      }
+
+      window.BridgeClient.sendAndWait(action, componentId, 'architecture', context, function(progress) {
+        console.log('AI request progress:', progress.elapsed + 'ms');
+      }).then(function(response) {
+        delete state.pendingAIRequests[componentId];
+
+        // Add AI response as annotation
+        if (!state.annotations[componentId]) state.annotations[componentId] = [];
+        state.annotations[componentId].unshift({
+          type: 'ai',
+          action: action,
+          text: response.content,
+          timestamp: Date.now(),
+          collapsed: false
+        });
+
+        saveState();
+        updateAnnotationsSummary();
+        renderCurrentView();
+        renderTree();
+        if (state.selectedComponent === componentId) {
+          updateDetails();
+        }
+      }).catch(function(err) {
+        delete state.pendingAIRequests[componentId];
+        console.error('AI action failed:', err);
+        alert('AI request failed: ' + err.message);
+        renderCurrentView();
+      });
+    }
+
+    function triggerAIQuestion(componentId, questionText) {
+      if (state.pendingAIRequests[componentId]) {
+        console.log('AI request already pending for', componentId);
+        return;
+      }
+
+      var data = state.componentData[componentId] || { title: componentId };
+      var context = {
+        nodeTitle: data.title,
+        nodeDescription: data.description || '',
+        projectName: PROJECT_NAME,
+        file: data.file || '',
+        neighbors: getNeighborNodes(componentId),
+        prompt: questionText + '\n\nContext: ' + data.title + (data.file ? ' (' + data.file + ')' : '') + ' in ' + PROJECT_NAME
+      };
+
+      state.pendingAIRequests[componentId] = true;
+      renderCurrentView(); // Show loading spinner
+
+      window.BridgeClient.sendAndWait('question', componentId, 'architecture', context).then(function(response) {
+        delete state.pendingAIRequests[componentId];
+
+        // Add AI response as annotation
+        if (!state.annotations[componentId]) state.annotations[componentId] = [];
+        state.annotations[componentId].unshift({
+          type: 'ai',
+          action: 'question',
+          question: questionText,
+          text: response.content,
+          timestamp: Date.now(),
+          collapsed: false
+        });
+
+        saveState();
+        updateAnnotationsSummary();
+        renderCurrentView();
+        renderTree();
+        if (state.selectedComponent === componentId) {
+          updateDetails();
+        }
+      }).catch(function(err) {
+        delete state.pendingAIRequests[componentId];
+        console.error('AI question failed:', err);
+        alert('AI request failed: ' + err.message);
+        renderCurrentView();
+      });
+    }
+
+    function getNeighborNodes(componentId) {
+      // Get connected nodes from workflow structure or data flow
+      var neighbors = [];
+      if (WORKFLOW_STRUCTURE && WORKFLOW_STRUCTURE.layers) {
+        WORKFLOW_STRUCTURE.layers.forEach(function(layer) {
+          layer.nodes.forEach(function(node) {
+            if (node.id === componentId && node.connections) {
+              neighbors = neighbors.concat(node.connections);
+            }
+          });
+        });
+      }
+      return neighbors.slice(0, 5); // Limit to 5 neighbors
+    }
+
+    function renderNodeLoadingState(nodeElement, componentId) {
+      if (state.pendingAIRequests[componentId]) {
+        var existing = nodeElement.querySelector('.node-loading');
+        if (!existing) {
+          var loader = document.createElement('div');
+          loader.className = 'node-loading';
+          var spinner = document.createElement('div');
+          spinner.className = 'spinner';
+          var text = document.createElement('span');
+          text.className = 'text';
+          text.textContent = 'Thinking...';
+          loader.appendChild(spinner);
+          loader.appendChild(text);
+          nodeElement.style.position = 'relative';
+          nodeElement.appendChild(loader);
+        }
+      } else {
+        var loader = nodeElement.querySelector('.node-loading');
+        if (loader) loader.remove();
+      }
+    }
+    // ============ END AI BRIDGE INTEGRATION ============
+
     var wasLoaded = loadState();
     zoom.load(); // Load saved zoom level
+
+    // Initialize bridge client
+    initBridgeClient();
 
     // Set header title from config
     document.getElementById('header-title').textContent = PROJECT_NAME + ' - Architecture Explorer';

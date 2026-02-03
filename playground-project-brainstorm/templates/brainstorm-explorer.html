@@ -42,7 +42,7 @@
     .tooltip.visible { opacity: 1; }
     .tooltip-title { font-weight: 600; margin-bottom: 4px; color: var(--accent); }
     .tooltip-desc { color: var(--text-dim); line-height: 1.4; }
-    .right-panel { background: var(--surface); display: flex; flex-direction: column; }
+    .right-panel { background: var(--surface); display: flex; flex-direction: column; overflow-y: auto; }
     .panel-section { padding: 16px; border-bottom: 1px solid var(--border); }
     .panel-section:last-child { border-bottom: none; flex: 1; display: flex; flex-direction: column; }
     .panel-section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 12px; }
@@ -104,9 +104,138 @@
       color: var(--text-dim); font-size: 11px; display: flex; align-items: center;
       padding: 0 8px; min-width: 45px; justify-content: center;
     }
+
+    /* ========== AI Bridge Integration ========== */
+    .bridge-status {
+      position: fixed; top: 12px; right: 20px; display: flex; align-items: center;
+      gap: 6px; padding: 6px 12px; border-radius: 6px; font-size: 11px;
+      background: var(--surface); border: 1px solid var(--border); z-index: 200;
+    }
+    .bridge-status .status-dot {
+      width: 8px; height: 8px; border-radius: 50%; transition: background 0.3s;
+    }
+    .bridge-status.connected .status-dot { background: var(--know); }
+    .bridge-status.disconnected .status-dot { background: var(--unknown); }
+    .bridge-status.connecting .status-dot { background: var(--fuzzy); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    .ai-context-menu {
+      position: absolute; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px; z-index: 300; min-width: 180px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4); display: none;
+    }
+    .ai-context-menu.visible { display: block; }
+    .ai-context-item {
+      display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+      border-radius: 6px; cursor: pointer; font-size: 12px; transition: background 0.15s;
+    }
+    .ai-context-item:hover { background: var(--surface-alt); }
+    .ai-context-item .icon { font-size: 14px; }
+    .ai-context-item.disabled { opacity: 0.5; cursor: not-allowed; }
+    .ai-context-item.divider {
+      height: 1px; background: var(--border); margin: 4px 0; padding: 0;
+    }
+
+    .node-ai-loading {
+      position: absolute; background: rgba(26, 26, 46, 0.9);
+      border-radius: 50%; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 50;
+    }
+    .node-ai-loading .spinner {
+      width: 16px; height: 16px; border: 2px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* AI Response Panel */
+    .ai-response-panel {
+      position: fixed; bottom: 140px; right: 20px; width: 350px; max-height: 400px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 250; display: none;
+      flex-direction: column;
+    }
+    .ai-response-panel.visible { display: flex; }
+    .ai-response-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+    }
+    .ai-response-header h4 { font-size: 13px; font-weight: 600; margin: 0; color: var(--accent); }
+    .ai-response-close {
+      background: transparent; border: none; color: var(--text-dim);
+      font-size: 18px; cursor: pointer; padding: 0; line-height: 1;
+    }
+    .ai-response-close:hover { color: var(--text); }
+    .ai-response-content {
+      padding: 16px; overflow-y: auto; flex: 1; font-size: 13px;
+      line-height: 1.5; color: var(--text);
+    }
+
+    /* ========== Markdown Rendering Styles ========== */
+    .markdown h2 { font-size: 14px; font-weight: 600; margin: 12px 0 8px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+    .markdown h3 { font-size: 13px; font-weight: 600; margin: 10px 0 6px; color: var(--text); }
+    .markdown h4 { font-size: 12px; font-weight: 600; margin: 8px 0 4px; color: var(--text-dim); }
+    .markdown p { margin: 6px 0; }
+    .markdown ul, .markdown ol { margin: 6px 0; padding-left: 20px; }
+    .markdown li { margin: 3px 0; }
+    .markdown code { background: var(--bg); padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', Monaco, monospace; font-size: 11px; color: var(--fuzzy); }
+    .markdown pre { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin: 8px 0; overflow-x: auto; }
+    .markdown pre code { background: none; padding: 0; color: var(--text); display: block; white-space: pre; }
+    .markdown strong { color: var(--text); font-weight: 600; }
+    .markdown em { font-style: italic; color: var(--text-dim); }
+    .markdown table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 12px; }
+    .markdown th, .markdown td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+    .markdown th { background: var(--surface-alt); font-weight: 600; }
+
+    /* ========== Annotation History Styles ========== */
+    .concept-item.has-annotation::after { content: '●'; color: var(--explore); margin-left: 6px; font-size: 8px; }
+    .annotations-history { padding: 16px; overflow-y: auto; flex: 1; }
+    .annotation-item { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+    .annotation-item.ai-annotation { border-left: 3px solid var(--explore); }
+    .annotation-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .annotation-type { font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--explore); padding: 2px 8px; background: rgba(156, 39, 176, 0.2); border-radius: 10px; }
+    .annotation-time { font-size: 10px; color: var(--text-dim); }
+    .annotation-delete { background: transparent; border: none; color: var(--text-dim); cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 4px; line-height: 1; }
+    .annotation-delete:hover { background: var(--unknown); color: var(--text); }
+    .annotation-text { font-size: 12px; line-height: 1.5; color: var(--text); }
+    .annotation-collapsed { max-height: 150px; overflow: hidden; position: relative; }
+    .annotation-collapsed::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 40px; background: linear-gradient(transparent, var(--surface-alt)); pointer-events: none; }
+    .annotation-expand-btn { background: transparent; border: 1px dashed var(--border); color: var(--text-dim); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px; width: 100%; margin-top: 8px; }
+    .annotation-expand-btn:hover { border-color: var(--accent); color: var(--text); }
+    .history-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 16px; border-bottom: 1px solid var(--border); position: relative; }
+    .history-header h3 { font-size: 14px; font-weight: 600; margin: 0; color: var(--text); }
+    .history-subtitle { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+    .close-history-btn { background: transparent; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; padding: 0; line-height: 1; }
+    .close-history-btn:hover { color: var(--text); }
+    .empty-history { color: var(--text-dim); font-size: 12px; padding: 20px; text-align: center; }
   </style>
 </head>
 <body>
+  <!-- AI Bridge Status Indicator -->
+  <div id="bridge-status" class="bridge-status disconnected">
+    <span class="status-dot"></span>
+    <span class="status-text">AI Disconnected</span>
+  </div>
+
+  <!-- AI Context Menu (positioned on right-click) -->
+  <div id="ai-context-menu" class="ai-context-menu">
+    <div class="ai-context-item" data-action="expand"><span class="icon">💡</span> Expand idea</div>
+    <div class="ai-context-item" data-action="challenge"><span class="icon">🎯</span> Challenge</div>
+    <div class="ai-context-item" data-action="connect"><span class="icon">🔗</span> Find connections</div>
+    <div class="ai-context-item" data-action="clarify"><span class="icon">❓</span> Clarify</div>
+    <div class="ai-context-item" data-action="alternatives"><span class="icon">🔄</span> Alternatives</div>
+    <div class="ai-context-item divider"></div>
+    <div class="ai-context-item" data-action="question"><span class="icon">💬</span> Ask Question</div>
+  </div>
+
+  <!-- AI Response Panel -->
+  <div id="ai-response-panel" class="ai-response-panel">
+    <div class="ai-response-header">
+      <h4 id="ai-response-title">AI Response</h4>
+      <button class="ai-response-close" id="ai-response-close">&times;</button>
+    </div>
+    <div class="ai-response-content" id="ai-response-content"></div>
+  </div>
+
   <div class="container">
     <header>
       <h1>{{PROJECT_NAME}} - Brainstorm Explorer</h1>
@@ -179,9 +308,110 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="question-modal">
+    <div class="modal">
+      <h3 id="question-modal-title">Ask about concept</h3>
+      <textarea id="question-text" placeholder="Type your question to move the brainstorm forward..."></textarea>
+      <div class="modal-actions">
+        <button class="modal-btn secondary" id="cancel-question">Cancel</button>
+        <button class="modal-btn primary" id="send-question">Ask AI</button>
+      </div>
+    </div>
+  </div>
+
   <!-- External config: include before main script -->
   <!-- Example: <script src="config-myproject.js"></script> -->
   <!-- The config.js file should define: window.EXTERNAL_CONFIG = { projectName: "...", ... }; -->
+
+  <!-- Sample config for testing (remove in production) -->
+  <script src="sample-config.js" onerror="console.log('No sample-config.js found, expecting external config')"></script>
+
+  <!-- Bridge Client for AI Connectivity (inlined for self-contained templates) -->
+  <script>
+(function() {
+  'use strict';
+
+  const BridgeClient = {
+    baseUrl: 'http://localhost:4242',
+    _connected: false,
+    _onStatusChange: null,
+
+    async checkConnection() {
+      try {
+        const response = await fetch(this.baseUrl + '/status');
+        const ok = response.ok;
+        this._setConnected(ok);
+        return ok;
+      } catch (e) {
+        this._setConnected(false);
+        return false;
+      }
+    },
+
+    /**
+     * Send action and wait for Claude's response.
+     * The server holds the connection until Claude responds.
+     */
+    async sendAndWait(action, nodeId, graphType, context) {
+      const response = await fetch(this.baseUrl + '/prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, nodeId, graphType, context })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Request failed');
+      }
+
+      return response.json();
+    },
+
+    _setConnected(connected) {
+      const changed = this._connected !== connected;
+      this._connected = connected;
+      if (changed && this._onStatusChange) {
+        this._onStatusChange(connected);
+      }
+    },
+
+    onStatusChange(callback) {
+      this._onStatusChange = callback;
+    },
+
+    isConnected() {
+      return this._connected;
+    },
+
+    startConnectionMonitor(interval = 10000) {
+      this.checkConnection();
+      setInterval(() => this.checkConnection(), interval);
+    }
+  };
+
+  // AI prompt generator
+  function generateAIPrompt(action, graphType, context) {
+    const { nodeTitle, nodeDescription, projectName, file } = context;
+
+    if (graphType === 'architecture') {
+      switch (action) {
+        case 'explain':
+          return `Explain what ${nodeTitle} does.${file ? ' File: ' + file : ''}${nodeDescription ? '\n' + nodeDescription : ''}\nProject: ${projectName}`;
+        case 'dependencies':
+          return `What are the dependencies of ${nodeTitle}?${file ? ' File: ' + file : ''}\nProject: ${projectName}`;
+        case 'improve':
+          return `Suggest improvements for ${nodeTitle}.${file ? ' File: ' + file : ''}\nProject: ${projectName}`;
+        case 'security':
+          return `Security concerns for ${nodeTitle}?${file ? ' File: ' + file : ''}\nProject: ${projectName}`;
+      }
+    }
+    return `Analyze "${nodeTitle}" in ${projectName}.`;
+  }
+
+  window.BridgeClient = BridgeClient;
+  window.generateAIPrompt = generateAIPrompt;
+})();
+  </script>
 
   <script>
     // ============ CONFIGURATION LOADER ============
@@ -210,7 +440,7 @@
     const STATUS_COLORS = { know: '#4caf50', fuzzy: '#ff9800', unknown: '#f44336', explore: '#9c27b0' };
     const STORAGE_KEY = 'brainstorm-explorer-' + PROJECT_NAME.toLowerCase().replace(/\s+/g, '-');
 
-    const state = { concepts: INITIAL_CONCEPTS, edges: INITIAL_EDGES, ideas: [], filter: 'all', activePreset: 'all', selectedConcept: null, dragging: null, dragOffset: { x: 0, y: 0 }, edgeMode: false, edgeSource: null, deleteEdgeMode: false };
+    const state = { concepts: INITIAL_CONCEPTS, edges: INITIAL_EDGES, ideas: [], annotations: {}, filter: 'all', activePreset: 'all', selectedConcept: null, dragging: null, dragOffset: { x: 0, y: 0 }, edgeMode: false, edgeSource: null, deleteEdgeMode: false, pendingAIRequests: {}, contextTarget: null };
 
     // ============ ZOOM MANAGEMENT ============
     const zoom = {
@@ -343,6 +573,104 @@
     };
     // ============ END ZOOM MANAGEMENT ============
 
+    // ============ LIGHTWEIGHT MARKDOWN PARSER ============
+    function parseMarkdown(text) {
+      if (!text) return '';
+
+      try {
+        // Limit text length to prevent performance issues
+        if (text.length > 50000) {
+          text = text.substring(0, 50000) + '\n\n[Content truncated]';
+        }
+
+        // Escape HTML to prevent XSS
+        var escaped = text
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+
+      // Process code blocks first (```...```)
+      escaped = escaped.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
+        return '<pre><code>' + code.trim() + '</code></pre>';
+      });
+
+      // Process inline code (`...`)
+      escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      // Process headers (## and ###)
+      escaped = escaped.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+      escaped = escaped.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+      escaped = escaped.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+
+      // Process bold (**text**)
+      escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+      // Process italic (*text*)
+      escaped = escaped.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+      // Process tables (| col1 | col2 |)
+      escaped = escaped.replace(/^\|(.+)\|$/gm, function(match, content) {
+        var cells = content.split('|').map(function(c) { return c.trim(); });
+        return '<tr>' + cells.map(function(c) {
+          if (c.match(/^-+$/)) return '';
+          return '<td>' + c + '</td>';
+        }).join('') + '</tr>';
+      });
+      escaped = escaped.replace(/(<tr>.*<\/tr>\n?)+/g, function(match) {
+        if (match.includes('<td></td>')) {
+          // This is a header separator row, convert first row to th
+          var rows = match.split('</tr>').filter(function(r) { return r.trim(); });
+          if (rows.length > 1) {
+            rows[0] = rows[0].replace(/<td>/g, '<th>').replace(/<\/td>/g, '</th>');
+            rows = rows.filter(function(r) { return !r.includes('<td></td>'); });
+            return '<table>' + rows.join('</tr>') + '</tr></table>';
+          }
+        }
+        return '<table>' + match + '</table>';
+      });
+
+      // Process unordered lists
+      escaped = escaped.replace(/^- (.+)$/gm, '<li>$1</li>');
+      escaped = escaped.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+
+      // Process numbered lists
+      escaped = escaped.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+
+      // Wrap remaining lines in paragraphs (skip if already wrapped in tags)
+      var lines = escaped.split('\n');
+      var result = [];
+
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (!line) {
+          result.push('');
+          continue;
+        }
+        // Skip lines already wrapped in block tags
+        if (line.match(/^<(h[234]|pre|ul|ol|li|p|table|tr|th|td)/) || line.match(/<\/(h[234]|pre|ul|ol|table)>$/)) {
+          result.push(line);
+        } else if (line.match(/<\/li>$/) || line.match(/<\/tr>$/)) {
+          result.push(line);
+        } else {
+          result.push('<p>' + line + '</p>');
+        }
+      }
+
+      // Clean up empty paragraphs and fix list wrapping
+      var html = result.join('\n')
+        .replace(/<p><\/p>/g, '')
+        .replace(/<\/ul>\s*<ul>/g, '')
+        .replace(/<p>(<ul>)/g, '$1')
+        .replace(/(<\/ul>)<\/p>/g, '$1');
+
+      return html;
+      } catch (err) {
+        console.error('Markdown parsing error:', err);
+        return '<p>' + (text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>';
+      }
+    }
+    // ============ END MARKDOWN PARSER ============
+
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const tooltip = document.getElementById('tooltip');
@@ -446,6 +774,9 @@
         concepts.forEach(c => {
           const item = document.createElement('div');
           item.className = 'concept-item' + (state.selectedConcept === c.id ? ' selected' : '');
+          if (state.annotations[c.id] && state.annotations[c.id].length > 0) {
+            item.classList.add('has-annotation');
+          }
           item.dataset.id = c.id;
           const badge = document.createElement('div'); badge.className = 'status-badge status-' + c.status;
           item.appendChild(badge); item.appendChild(document.createTextNode(c.name));
@@ -558,7 +889,17 @@
         return;
       }
       if (state.deleteEdgeMode) { const edgeResult = getEdgeNear(world.x, world.y); if (edgeResult) { state.edges.splice(edgeResult.index, 1); draw(); saveState(); } return; }
-      if (concept) { state.dragging = concept; state.dragOffset = { x: world.x - concept.x, y: world.y - concept.y }; state.selectedConcept = concept.id; renderSidebar(); draw(); }
+      if (concept) {
+        state.dragging = concept;
+        state.dragOffset = { x: world.x - concept.x, y: world.y - concept.y };
+        state.selectedConcept = concept.id;
+        // Show history panel if node has annotations
+        if (state.annotations[concept.id] && state.annotations[concept.id].length > 0) {
+          showHistoryPanel(concept.id);
+        }
+        renderSidebar();
+        draw();
+      }
     });
 
     canvas.addEventListener('mousemove', e => {
@@ -684,7 +1025,7 @@
     });
 
     function saveState() {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ concepts: state.concepts, edges: state.edges, ideas: state.ideas, version: 1 })); }
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ concepts: state.concepts, edges: state.edges, ideas: state.ideas, annotations: state.annotations, version: 1 })); }
       catch (e) { console.warn('Failed to save:', e); }
     }
 
@@ -693,7 +1034,7 @@
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
           const p = JSON.parse(saved);
-          if (p.version === 1) { state.concepts = p.concepts || state.concepts; state.edges = p.edges || state.edges; state.ideas = p.ideas || state.ideas; return true; }
+          if (p.version === 1) { state.concepts = p.concepts || state.concepts; state.edges = p.edges || state.edges; state.ideas = p.ideas || state.ideas; state.annotations = p.annotations || {}; return true; }
         }
       } catch (e) { console.warn('Failed to load:', e); }
       return false;
@@ -735,9 +1076,499 @@
     });
     // ============ END ZOOM EVENT LISTENERS ============
 
+    // ============ AI BRIDGE INTEGRATION ============
+    let bridgeAvailable = false;
+    const aiContextMenu = document.getElementById('ai-context-menu');
+    const aiResponsePanel = document.getElementById('ai-response-panel');
+    let historyPanelActive = false;
+
+    function updateBridgeStatus(connected) {
+      bridgeAvailable = connected;
+      const statusEl = document.getElementById('bridge-status');
+      const textEl = statusEl.querySelector('.status-text');
+      statusEl.classList.remove('connected', 'disconnected', 'connecting');
+      statusEl.classList.add(connected ? 'connected' : 'disconnected');
+      textEl.textContent = connected ? 'AI Connected' : 'AI Disconnected';
+
+      // Update AI action items visibility
+      document.querySelectorAll('.ai-context-item').forEach(item => {
+        item.classList.toggle('disabled', !connected);
+      });
+    }
+
+    function initBridgeClient() {
+      if (!window.BridgeClient) {
+        console.log('Bridge client not available - AI features disabled');
+        updateBridgeStatus(false);
+        return;
+      }
+
+      // Set up connection monitoring
+      window.BridgeClient.onStatusChange(updateBridgeStatus);
+      window.BridgeClient.startConnectionMonitor(10000);
+
+      // Set up AI action handlers
+      setupAIContextMenu();
+    }
+
+    function setupAIContextMenu() {
+      // Right-click handler for canvas
+      canvas.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const screenX = e.clientX - rect.left;
+        const screenY = e.clientY - rect.top;
+        const world = zoom.screenToWorld(screenX, screenY);
+
+        // Find clicked concept
+        const concept = state.concepts.find(c => {
+          const dx = c.x - world.x;
+          const dy = c.y - world.y;
+          return Math.sqrt(dx * dx + dy * dy) < 30; // Node radius
+        });
+
+        if (concept && bridgeAvailable) {
+          state.contextTarget = concept.id;
+          aiContextMenu.style.left = e.clientX + 'px';
+          aiContextMenu.style.top = e.clientY + 'px';
+          aiContextMenu.classList.add('visible');
+        } else {
+          hideAIContextMenu();
+        }
+      });
+
+      // Click handlers for AI actions
+      document.querySelectorAll('.ai-context-item').forEach(item => {
+        item.addEventListener('click', () => {
+          if (!bridgeAvailable || !state.contextTarget) return;
+          const action = item.dataset.action;
+          if (action === 'question') {
+            openQuestionModal(state.contextTarget);
+          } else if (action) {
+            triggerAIAction(action, state.contextTarget);
+          }
+          hideAIContextMenu();
+        });
+      });
+
+      // Close menu on outside click
+      document.addEventListener('click', e => {
+        if (!aiContextMenu.contains(e.target)) {
+          hideAIContextMenu();
+        }
+      });
+
+      // Close response panel
+      document.getElementById('ai-response-close').addEventListener('click', () => {
+        aiResponsePanel.classList.remove('visible');
+      });
+    }
+
+    function hideAIContextMenu() {
+      aiContextMenu.classList.remove('visible');
+    }
+
+    // ============ QUESTION MODAL ============
+    let questionTargetConcept = null;
+
+    function openQuestionModal(conceptId) {
+      const concept = state.concepts.find(c => c.id === conceptId);
+      if (!concept) return;
+
+      questionTargetConcept = conceptId;
+      document.getElementById('question-modal-title').textContent = 'Ask about: ' + concept.name;
+      document.getElementById('question-text').value = '';
+      document.getElementById('question-modal').classList.add('visible');
+      document.getElementById('question-text').focus();
+    }
+
+    document.getElementById('cancel-question').addEventListener('click', () => {
+      document.getElementById('question-modal').classList.remove('visible');
+      questionTargetConcept = null;
+    });
+
+    document.getElementById('send-question').addEventListener('click', () => {
+      const questionText = document.getElementById('question-text').value.trim();
+      if (questionText && questionTargetConcept && bridgeAvailable) {
+        triggerAIQuestion(questionTargetConcept, questionText);
+      }
+      document.getElementById('question-modal').classList.remove('visible');
+      questionTargetConcept = null;
+    });
+
+    // Handle Enter key in question modal
+    document.getElementById('question-text').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('send-question').click();
+      }
+    });
+
+    function triggerAIQuestion(conceptId, questionText) {
+      if (state.pendingAIRequests[conceptId]) {
+        console.log('AI request already pending for', conceptId);
+        return;
+      }
+
+      const concept = state.concepts.find(c => c.id === conceptId);
+      if (!concept) return;
+
+      const context = {
+        nodeTitle: concept.name,
+        nodeDescription: concept.desc || '',
+        projectName: PROJECT_NAME,
+        status: concept.status,
+        topic: concept.topic,
+        prompt: questionText + '\n\nContext: Brainstorming "' + concept.name + '" in ' + PROJECT_NAME + '\nCurrent understanding: ' + concept.status
+      };
+
+      state.pendingAIRequests[conceptId] = true;
+      showNodeLoadingOverlay(conceptId);
+      draw();
+
+      window.BridgeClient.sendAndWait('question', conceptId, 'brainstorm', context).then(response => {
+        delete state.pendingAIRequests[conceptId];
+        hideNodeLoadingOverlay(conceptId);
+
+        // Store response as annotation
+        if (!state.annotations[conceptId]) state.annotations[conceptId] = [];
+        state.annotations[conceptId].unshift({
+          type: 'ai',
+          action: 'question',
+          question: questionText,
+          text: response.content,
+          timestamp: Date.now(),
+          collapsed: false
+        });
+        saveState();
+
+        // Show in response panel (parseMarkdown escapes HTML for XSS safety)
+        document.getElementById('ai-response-title').textContent = 'Q: ' + questionText.substring(0, 30) + (questionText.length > 30 ? '...' : '');
+        const contentEl = document.getElementById('ai-response-content');
+        contentEl.classList.add('markdown');
+        contentEl.innerHTML = parseMarkdown(response.content);
+        aiResponsePanel.classList.add('visible');
+
+        renderSidebar();
+        draw();
+      }).catch(err => {
+        delete state.pendingAIRequests[conceptId];
+        hideNodeLoadingOverlay(conceptId);
+        draw();
+        console.error('AI question failed:', err);
+        alert('AI request failed: ' + err.message);
+      });
+    }
+    // ============ END QUESTION MODAL ============
+
+    // ============ NODE LOADING OVERLAY ============
+    function showNodeLoadingOverlay(conceptId) {
+      const concept = state.concepts.find(c => c.id === conceptId);
+      if (!concept) return;
+
+      hideNodeLoadingOverlay(conceptId);
+
+      const overlay = document.createElement('div');
+      overlay.className = 'node-ai-loading';
+      overlay.id = 'loading-' + conceptId;
+
+      // Calculate screen position with zoom
+      const screenX = (concept.x + zoom.offsetX) * zoom.scale;
+      const screenY = (concept.y + zoom.offsetY) * zoom.scale;
+
+      overlay.style.left = (screenX - 30) + 'px';
+      overlay.style.top = (screenY - 30) + 'px';
+      overlay.style.width = '60px';
+      overlay.style.height = '60px';
+
+      const spinner = document.createElement('div');
+      spinner.className = 'spinner';
+      overlay.appendChild(spinner);
+
+      canvasContainer.appendChild(overlay);
+    }
+
+    function hideNodeLoadingOverlay(conceptId) {
+      const overlay = document.getElementById('loading-' + conceptId);
+      if (overlay) overlay.remove();
+    }
+
+    // ============ RESPONSE HISTORY PANEL ============
+    function formatTimestamp(ts) {
+      const d = new Date(ts);
+      const now = new Date();
+      const diff = now - d;
+      if (diff < 60000) return 'just now';
+      if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+      return d.toLocaleDateString();
+    }
+
+    function showHistoryPanel(conceptId) {
+      const concept = state.concepts.find(c => c.id === conceptId);
+      if (!concept) return;
+
+      const annotations = state.annotations[conceptId] || [];
+      historyPanelActive = true;
+
+      const rightPanel = document.querySelector('.right-panel');
+      rightPanel.textContent = '';
+
+      // Header
+      const header = document.createElement('div');
+      header.className = 'history-header';
+
+      const headerInfo = document.createElement('div');
+      const title = document.createElement('h3');
+      title.textContent = concept.name;
+      headerInfo.appendChild(title);
+
+      const subtitle = document.createElement('div');
+      subtitle.className = 'history-subtitle';
+      subtitle.textContent = annotations.length + ' response' + (annotations.length !== 1 ? 's' : '');
+      headerInfo.appendChild(subtitle);
+      header.appendChild(headerInfo);
+
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'close-history-btn';
+      closeBtn.textContent = '\u00D7';
+      closeBtn.addEventListener('click', hideHistoryPanel);
+      header.appendChild(closeBtn);
+
+      rightPanel.appendChild(header);
+
+      // Annotations container
+      const historyContainer = document.createElement('div');
+      historyContainer.className = 'annotations-history';
+
+      if (annotations.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'empty-history';
+        empty.textContent = 'No AI responses yet. Right-click this node to ask AI.';
+        historyContainer.appendChild(empty);
+      } else {
+        annotations.forEach((ann, idx) => {
+          const item = document.createElement('div');
+          item.className = 'annotation-item' + (ann.type === 'ai' ? ' ai-annotation' : '');
+
+          // Header with type and delete
+          const itemHeader = document.createElement('div');
+          itemHeader.className = 'annotation-header';
+
+          const typeLabel = document.createElement('span');
+          typeLabel.className = 'annotation-type';
+          typeLabel.textContent = ann.type === 'ai' ? 'AI: ' + (ann.action || 'response') : ann.type;
+          itemHeader.appendChild(typeLabel);
+
+          const timeLabel = document.createElement('span');
+          timeLabel.className = 'annotation-time';
+          timeLabel.textContent = formatTimestamp(ann.timestamp);
+          itemHeader.appendChild(timeLabel);
+
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'annotation-delete';
+          deleteBtn.textContent = '\u00D7';
+          deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            state.annotations[conceptId].splice(idx, 1);
+            if (state.annotations[conceptId].length === 0) delete state.annotations[conceptId];
+            saveState();
+            renderSidebar();
+            showHistoryPanel(conceptId);
+          });
+          itemHeader.appendChild(deleteBtn);
+
+          item.appendChild(itemHeader);
+
+          // Content with markdown rendering (parseMarkdown escapes HTML for XSS safety)
+          const textContainer = document.createElement('div');
+          textContainer.className = 'annotation-text' + (ann.collapsed ? ' annotation-collapsed' : '');
+          if (ann.type === 'ai') {
+            textContainer.classList.add('markdown');
+            // parseMarkdown escapes all HTML before processing, safe to use innerHTML
+            textContainer.innerHTML = parseMarkdown(ann.text);
+          } else {
+            textContainer.textContent = ann.text;
+          }
+          item.appendChild(textContainer);
+
+          // Expand/collapse for long responses
+          if (ann.type === 'ai' && ann.text && ann.text.length > 500) {
+            const expandBtn = document.createElement('button');
+            expandBtn.className = 'annotation-expand-btn';
+            expandBtn.textContent = ann.collapsed ? 'Show more' : 'Show less';
+            expandBtn.addEventListener('click', () => {
+              ann.collapsed = !ann.collapsed;
+              saveState();
+              showHistoryPanel(conceptId);
+            });
+            item.appendChild(expandBtn);
+          }
+
+          historyContainer.appendChild(item);
+        });
+      }
+
+      rightPanel.appendChild(historyContainer);
+    }
+
+    function hideHistoryPanel() {
+      historyPanelActive = false;
+      state.selectedConcept = null;
+      restoreRightPanel();
+      renderSidebar();
+      draw();
+    }
+
+    function restoreRightPanel() {
+      const rightPanel = document.querySelector('.right-panel');
+      rightPanel.textContent = '';
+
+      // Legend section
+      const legendSection = document.createElement('div');
+      legendSection.className = 'panel-section';
+      const legendTitle = document.createElement('h3');
+      legendTitle.textContent = 'Status Legend (click to filter)';
+      legendSection.appendChild(legendTitle);
+
+      const legend = document.createElement('div');
+      legend.className = 'legend';
+
+      const statuses = [
+        { status: 'all', label: 'All', style: 'background: var(--text-dim)' },
+        { status: 'know', label: 'Know', className: 'status-know' },
+        { status: 'fuzzy', label: 'Fuzzy', className: 'status-fuzzy' },
+        { status: 'unknown', label: 'Unknown', className: 'status-unknown' },
+        { status: 'explore', label: 'Explore', className: 'status-explore' }
+      ];
+
+      statuses.forEach(s => {
+        const item = document.createElement('div');
+        item.className = 'legend-item' + (state.filter === s.status ? ' active' : '');
+        item.dataset.status = s.status;
+
+        const badge = document.createElement('div');
+        badge.className = 'status-badge' + (s.className ? ' ' + s.className : '');
+        if (s.style) badge.style.cssText = s.style;
+        item.appendChild(badge);
+        item.appendChild(document.createTextNode(s.label));
+
+        item.addEventListener('click', () => {
+          document.querySelectorAll('.legend-item').forEach(i => i.classList.remove('active'));
+          item.classList.add('active');
+          state.filter = s.status;
+          draw();
+        });
+
+        legend.appendChild(item);
+      });
+
+      legendSection.appendChild(legend);
+      rightPanel.appendChild(legendSection);
+
+      // Ideas section
+      const ideasSection = document.createElement('div');
+      ideasSection.className = 'panel-section';
+      const ideasTitle = document.createElement('h3');
+      ideasTitle.textContent = 'Captured Ideas';
+      ideasSection.appendChild(ideasTitle);
+
+      const ideasContainerEl = document.createElement('div');
+      ideasContainerEl.className = 'ideas-container';
+      ideasContainerEl.id = 'ideas-container';
+      ideasSection.appendChild(ideasContainerEl);
+
+      const addIdeaBtn = document.createElement('button');
+      addIdeaBtn.className = 'add-idea-btn';
+      addIdeaBtn.id = 'add-idea-btn';
+      addIdeaBtn.textContent = '+ Add Idea';
+      addIdeaBtn.addEventListener('click', () => {
+        document.getElementById('idea-modal').classList.add('visible');
+        document.getElementById('idea-title').focus();
+      });
+      ideasSection.appendChild(addIdeaBtn);
+
+      rightPanel.appendChild(ideasSection);
+
+      renderIdeas();
+    }
+
+    function triggerAIAction(action, conceptId) {
+      if (state.pendingAIRequests[conceptId]) {
+        console.log('AI request already pending for', conceptId);
+        return;
+      }
+
+      const concept = state.concepts.find(c => c.id === conceptId);
+      if (!concept) return;
+
+      const neighbors = state.edges
+        .filter(e => e.from === conceptId || e.to === conceptId)
+        .map(e => e.from === conceptId ? e.to : e.from)
+        .map(id => state.concepts.find(c => c.id === id))
+        .filter(Boolean)
+        .map(c => c.name);
+
+      const context = {
+        nodeTitle: concept.name,
+        nodeDescription: concept.desc || '',
+        projectName: PROJECT_NAME,
+        neighbors: neighbors
+      };
+
+      state.pendingAIRequests[conceptId] = true;
+      showNodeLoadingOverlay(conceptId);
+      draw();
+
+      if (window.generateAIPrompt) {
+        context.prompt = window.generateAIPrompt(action, 'brainstorm', context);
+      }
+
+      window.BridgeClient.sendAndWait(action, conceptId, 'brainstorm', context, progress => {
+        console.log('AI request progress:', progress.elapsed + 'ms');
+      }).then(response => {
+        delete state.pendingAIRequests[conceptId];
+        hideNodeLoadingOverlay(conceptId);
+
+        // Store response as annotation
+        if (!state.annotations[conceptId]) state.annotations[conceptId] = [];
+        state.annotations[conceptId].unshift({
+          type: 'ai',
+          action: action,
+          text: response.content,
+          timestamp: Date.now(),
+          collapsed: false
+        });
+        saveState();
+
+        // Show in response panel with markdown (parseMarkdown escapes HTML for XSS safety)
+        document.getElementById('ai-response-title').textContent = 'AI: ' + action + ' - ' + concept.name;
+        const contentEl = document.getElementById('ai-response-content');
+        contentEl.classList.add('markdown');
+        // parseMarkdown escapes all HTML before processing, safe to use innerHTML
+        contentEl.innerHTML = parseMarkdown(response.content);
+        aiResponsePanel.classList.add('visible');
+
+        // Update sidebar to show annotation badge
+        renderSidebar();
+        draw();
+      }).catch(err => {
+        delete state.pendingAIRequests[conceptId];
+        hideNodeLoadingOverlay(conceptId);
+        draw();
+        console.error('AI action failed:', err);
+        alert('AI request failed: ' + err.message);
+      });
+    }
+    // ============ END AI BRIDGE INTEGRATION ============
+
     window.addEventListener('resize', resizeCanvas);
     const wasLoaded = loadState();
     zoom.load(); // Load saved zoom level
+
+    // Initialize bridge client
+    initBridgeClient();
+
     initPresetButtons();
     initTopicSelect();
     resizeCanvas();
