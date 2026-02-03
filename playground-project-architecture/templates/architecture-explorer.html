@@ -483,7 +483,8 @@
 
     /* Zoom Controls */
     .zoom-controls {
-      position: absolute; bottom: 16px; right: 16px; display: flex; gap: 4px;
+      position: sticky; bottom: 16px; left: calc(100% - 250px); width: fit-content;
+      display: flex; gap: 4px; margin-top: auto;
       background: #161b22; border: 1px solid #30363d; border-radius: 8px;
       padding: 8px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
