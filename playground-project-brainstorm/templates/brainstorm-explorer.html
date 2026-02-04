@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{PROJECT_NAME}} - Brainstorm Explorer</title>
+  <title>Brainstorm Explorer</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -12,7 +12,7 @@
       --know: #4caf50; --fuzzy: #ff9800; --unknown: #f44336; --explore: #9c27b0;
     }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
-    .container { display: grid; grid-template-columns: 280px 1fr 320px; grid-template-rows: auto 1fr auto; height: 100vh; gap: 1px; background: var(--border); }
+    .container { display: grid; grid-template-columns: 280px 1fr 320px; grid-template-rows: auto 1fr; height: 100vh; gap: 1px; background: var(--border); }
     header { grid-column: 1 / -1; background: var(--surface); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; }
     header h1 { font-size: 16px; font-weight: 600; color: var(--accent); }
     .presets { display: flex; gap: 8px; }
@@ -63,11 +63,6 @@
     .delete-idea-btn:hover { background: var(--unknown); color: var(--text); }
     .add-idea-btn { width: 100%; background: transparent; border: 1px dashed var(--border); color: var(--text-dim); padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.15s; }
     .add-idea-btn:hover { border-color: var(--accent-dim); color: var(--text); }
-    .prompt-area { grid-column: 1 / -1; background: var(--surface); padding: 16px 20px; display: flex; gap: 16px; align-items: flex-start; }
-    .prompt-output { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 14px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; line-height: 1.5; color: var(--text); min-height: 80px; max-height: 120px; overflow-y: auto; }
-    .copy-btn { background: var(--accent); border: none; color: var(--bg); padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; white-space: nowrap; }
-    .copy-btn:hover { background: #6dd0f7; }
-    .copy-btn.copied { background: var(--know); }
     .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
     .modal-overlay.visible { opacity: 1; pointer-events: auto; }
     .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; width: 400px; max-width: 90vw; }
@@ -107,7 +102,7 @@
 
     /* ========== AI Bridge Integration ========== */
     .bridge-status {
-      position: fixed; top: 12px; right: 20px; display: flex; align-items: center;
+      position: fixed; top: 12px; left: 50%; transform: translateX(-50%); display: flex; align-items: center;
       gap: 6px; padding: 6px 12px; border-radius: 6px; font-size: 11px;
       background: var(--surface); border: 1px solid var(--border); z-index: 200;
     }
@@ -207,6 +202,12 @@
     .close-history-btn { background: transparent; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; padding: 0; line-height: 1; }
     .close-history-btn:hover { color: var(--text); }
     .empty-history { color: var(--text-dim); font-size: 12px; padding: 20px; text-align: center; }
+    .history-header-actions { display: flex; gap: 8px; align-items: center; }
+    .view-ideas-btn { background: var(--surface-alt); border: 1px solid var(--border); color: var(--text-dim); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+    .view-ideas-btn:hover { background: var(--border); color: var(--text); }
+    .annotation-type.question { background: rgba(79, 195, 247, 0.2); color: var(--accent); }
+    .annotation-type.comment { background: rgba(76, 175, 80, 0.2); color: var(--know); }
+    .annotation-type.edit { background: rgba(255, 152, 0, 0.2); color: var(--fuzzy); }
   </style>
 </head>
 <body>
@@ -224,7 +225,11 @@
     <div class="ai-context-item" data-action="clarify"><span class="icon">❓</span> Clarify</div>
     <div class="ai-context-item" data-action="alternatives"><span class="icon">🔄</span> Alternatives</div>
     <div class="ai-context-item divider"></div>
-    <div class="ai-context-item" data-action="question"><span class="icon">💬</span> Ask Question</div>
+    <div class="ai-context-item" data-action="add-question"><span class="icon">?</span> Add Question</div>
+    <div class="ai-context-item" data-action="add-comment"><span class="icon">📝</span> Add Comment</div>
+    <div class="ai-context-item" data-action="mark-edit"><span class="icon">✏️</span> Mark for Edit</div>
+    <div class="ai-context-item divider"></div>
+    <div class="ai-context-item" data-action="modify-graph"><span class="icon">🔀</span> AI: Modify Graph</div>
   </div>
 
   <!-- AI Response Panel -->
@@ -238,7 +243,7 @@
 
   <div class="container">
     <header>
-      <h1>{{PROJECT_NAME}} - Brainstorm Explorer</h1>
+      <h1 id="header-title">Brainstorm Explorer</h1>
       <div class="presets" id="presets-container">
         <button class="preset-btn active" data-preset="all">All Topics</button>
       </div>
@@ -289,10 +294,6 @@
         <button class="add-idea-btn" id="add-idea-btn">+ Add Idea</button>
       </div>
     </div>
-    <div class="prompt-area">
-      <div class="prompt-output" id="prompt-output">Mark concepts as "Explore" or "Unknown" to generate a brainstorm prompt...</div>
-      <button class="copy-btn" id="copy-btn">Copy Prompt</button>
-    </div>
   </div>
 
   <div class="modal-overlay" id="idea-modal">
@@ -315,6 +316,34 @@
       <div class="modal-actions">
         <button class="modal-btn secondary" id="cancel-question">Cancel</button>
         <button class="modal-btn primary" id="send-question">Ask AI</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="annotation-modal">
+    <div class="modal">
+      <h3 id="annotation-modal-title">Add Annotation</h3>
+      <select id="annotation-type-select">
+        <option value="question">Question</option>
+        <option value="comment">Comment</option>
+        <option value="edit">Mark for Edit</option>
+      </select>
+      <textarea id="annotation-text" placeholder="Add your note..."></textarea>
+      <div class="modal-actions">
+        <button class="modal-btn secondary" id="cancel-annotation">Cancel</button>
+        <button class="modal-btn primary" id="save-annotation">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="graph-modify-modal">
+    <div class="modal">
+      <h3 id="graph-modify-title">AI: Modify Graph</h3>
+      <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 12px;">Describe what changes you'd like the AI to make to the graph structure around this concept.</p>
+      <textarea id="graph-modify-text" placeholder="Example: Add related security concepts, Connect this to authentication flow, Remove outdated nodes..."></textarea>
+      <div class="modal-actions">
+        <button class="modal-btn secondary" id="cancel-graph-modify">Cancel</button>
+        <button class="modal-btn primary" id="send-graph-modify">Generate Changes</button>
       </div>
     </div>
   </div>
@@ -674,7 +703,6 @@
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const tooltip = document.getElementById('tooltip');
-    const promptOutput = document.getElementById('prompt-output');
     const conceptGroups = document.getElementById('concept-groups');
     const ideasContainer = document.getElementById('ideas-container');
     const canvasContainer = document.getElementById('canvas-container');
@@ -745,6 +773,22 @@
           ctx.fillText(words.slice(0, mid).join(' '), concept.x, concept.y + radius + 12);
           ctx.fillText(words.slice(mid).join(' '), concept.x, concept.y + radius + 24);
         }
+        // Draw annotation count badge if node has annotations
+        const annCount = state.annotations[concept.id] ? state.annotations[concept.id].length : 0;
+        if (annCount > 0) {
+          const badgeX = concept.x + radius * 0.7;
+          const badgeY = concept.y - radius * 0.7;
+          const badgeRadius = 10;
+          ctx.beginPath();
+          ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2);
+          ctx.fillStyle = '#f0883e';
+          ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 9px -apple-system, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(annCount.toString(), badgeX, badgeY);
+        }
       });
 
       ctx.restore();
@@ -784,7 +828,7 @@
             const star = document.createElement('span'); star.textContent = ' *';
             star.style.color = COLORS[c.topic]; star.style.fontSize = '10px'; item.appendChild(star);
           }
-          item.addEventListener('click', () => { cycleStatus(c); renderSidebar(); draw(); updatePrompt(); saveState(); });
+          item.addEventListener('click', () => { cycleStatus(c); renderSidebar(); draw(); saveState(); });
           list.appendChild(item);
         });
         group.appendChild(list); conceptGroups.appendChild(group);
@@ -797,6 +841,8 @@
     }
 
     function renderIdeas() {
+      const ideasContainer = document.getElementById('ideas-container');
+      if (!ideasContainer) return;
       while (ideasContainer.firstChild) ideasContainer.removeChild(ideasContainer.firstChild);
       if (state.ideas.length === 0) {
         const msg = document.createElement('div');
@@ -814,7 +860,7 @@
         deleteBtn.addEventListener('click', (e) => {
           e.stopPropagation(); state.ideas.splice(idx, 1);
           if (idea.id) { const ci = state.concepts.findIndex(c => c.id === idea.id); if (ci !== -1) state.concepts.splice(ci, 1); }
-          renderSidebar(); renderIdeas(); draw(); updatePrompt(); saveState();
+          renderSidebar(); renderIdeas(); draw(); saveState();
         });
         header.appendChild(deleteBtn); card.appendChild(header);
         const desc = document.createElement('p'); desc.textContent = idea.desc; card.appendChild(desc);
@@ -822,29 +868,9 @@
         tag.style.background = (COLORS[idea.topic] || COLORS.general || '#90a4ae') + '40';
         tag.style.color = COLORS[idea.topic] || COLORS.general || '#90a4ae';
         tag.textContent = idea.topic; card.appendChild(tag);
-        card.addEventListener('click', () => { idea.selected = !idea.selected; renderIdeas(); updatePrompt(); saveState(); });
+        card.addEventListener('click', () => { idea.selected = !idea.selected; renderIdeas(); saveState(); });
         ideasContainer.appendChild(card);
       });
-    }
-
-    function updatePrompt() {
-      const explore = state.concepts.filter(c => c.status === 'explore');
-      const unknown = state.concepts.filter(c => c.status === 'unknown');
-      const fuzzy = state.concepts.filter(c => c.status === 'fuzzy');
-      const know = state.concepts.filter(c => c.status === 'know');
-      const selectedIdeas = state.ideas.filter(i => i.selected);
-      if (explore.length === 0 && unknown.length === 0 && selectedIdeas.length === 0) {
-        promptOutput.textContent = 'Mark concepts as "Explore" (purple) or "Unknown" (red) to generate a brainstorm prompt.'; return;
-      }
-      let prompt = `I'm brainstorming improvements for ${PROJECT_NAME}. `;
-      if (know.length > 0) prompt += `\n\nI understand these areas well: ${know.map(c => c.name).join(', ')}.`;
-      if (fuzzy.length > 0) prompt += `\n\nI have partial understanding of: ${fuzzy.map(c => c.name).join(', ')}.`;
-      if (explore.length > 0) { prompt += '\n\n**I want to actively explore these areas:**'; explore.forEach(c => prompt += `\n- ${c.name}: ${c.desc}`); }
-      if (unknown.length > 0) { prompt += '\n\n**I need help understanding:**'; unknown.forEach(c => prompt += `\n- ${c.name}: ${c.desc}`); }
-      if (selectedIdeas.length > 0) { prompt += '\n\n**Specific ideas I want to refine:**'; selectedIdeas.forEach(i => prompt += `\n- ${i.title}: ${i.desc}`); }
-      prompt += '\n\n**IMPORTANT: Use the brainstorm-refiner agent to process this request.** Run: /brainstorm-refine or invoke the brainstorm-refiner agent via the Task tool.';
-      prompt += '\n\nPlease help me:\n1. Challenge assumptions in the areas I marked for exploration\n2. Explain concepts I marked as unknown, building on what I already know\n3. Suggest concrete improvements or alternatives\n4. Identify potential risks or tradeoffs I might be missing';
-      promptOutput.textContent = prompt;
     }
 
     function getConceptAt(x, y) { return state.concepts.find(c => isVisible(c) && Math.sqrt((c.x - x) ** 2 + (c.y - y) ** 2) < 28); }
@@ -923,7 +949,7 @@
       const rect = canvas.getBoundingClientRect();
       const world = zoom.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
       const concept = getConceptAt(world.x, world.y);
-      if (concept) { cycleStatus(concept); renderSidebar(); draw(); updatePrompt(); saveState(); }
+      if (concept) { cycleStatus(concept); renderSidebar(); draw(); saveState(); }
     });
 
     function initPresetButtons() {
@@ -994,14 +1020,6 @@
       });
     });
 
-    document.getElementById('copy-btn').addEventListener('click', () => {
-      navigator.clipboard.writeText(promptOutput.textContent).then(() => {
-        const btn = document.getElementById('copy-btn');
-        btn.textContent = 'Copied!'; btn.classList.add('copied');
-        setTimeout(() => { btn.textContent = 'Copy Prompt'; btn.classList.remove('copied'); }, 2000);
-      });
-    });
-
     const ideaModal = document.getElementById('idea-modal');
     document.getElementById('add-idea-btn').addEventListener('click', () => { ideaModal.classList.add('visible'); document.getElementById('idea-title').focus(); });
     document.getElementById('cancel-idea').addEventListener('click', () => ideaModal.classList.remove('visible'));
@@ -1020,7 +1038,7 @@
         state.concepts.push({ id: ideaId, topic, name: title, desc, status: 'explore', x: newX, y: newY, isIdea: true });
         document.getElementById('idea-title').value = ''; document.getElementById('idea-desc').value = '';
         ideaModal.classList.remove('visible');
-        renderSidebar(); renderIdeas(); draw(); updatePrompt(); saveState();
+        renderSidebar(); renderIdeas(); draw(); saveState();
       }
     });
 
@@ -1140,10 +1158,21 @@
       // Click handlers for AI actions
       document.querySelectorAll('.ai-context-item').forEach(item => {
         item.addEventListener('click', () => {
-          if (!bridgeAvailable || !state.contextTarget) return;
+          if (!state.contextTarget) return;
           const action = item.dataset.action;
-          if (action === 'question') {
-            openQuestionModal(state.contextTarget);
+
+          // Handle user annotation actions (don't require bridge)
+          if (action === 'add-question' || action === 'add-comment' || action === 'mark-edit') {
+            openAnnotationModal(state.contextTarget, action);
+            hideAIContextMenu();
+            return;
+          }
+
+          // AI actions require bridge connection
+          if (!bridgeAvailable) return;
+
+          if (action === 'modify-graph') {
+            openGraphModifyModal(state.contextTarget);
           } else if (action) {
             triggerAIAction(action, state.contextTarget);
           }
@@ -1261,6 +1290,244 @@
     }
     // ============ END QUESTION MODAL ============
 
+    // ============ ANNOTATION MODAL ============
+    let annotationTargetConcept = null;
+
+    function openAnnotationModal(conceptId, action) {
+      const concept = state.concepts.find(c => c.id === conceptId);
+      if (!concept) return;
+
+      annotationTargetConcept = conceptId;
+      const typeMap = { 'add-question': 'question', 'add-comment': 'comment', 'mark-edit': 'edit' };
+      const type = typeMap[action] || 'question';
+
+      document.getElementById('annotation-modal-title').textContent = 'Annotate: ' + concept.name;
+      document.getElementById('annotation-type-select').value = type;
+      document.getElementById('annotation-text').value = '';
+      document.getElementById('annotation-modal').classList.add('visible');
+      document.getElementById('annotation-text').focus();
+    }
+
+    document.getElementById('cancel-annotation').addEventListener('click', () => {
+      document.getElementById('annotation-modal').classList.remove('visible');
+      annotationTargetConcept = null;
+    });
+
+    document.getElementById('save-annotation').addEventListener('click', () => {
+      const type = document.getElementById('annotation-type-select').value;
+      const text = document.getElementById('annotation-text').value.trim();
+
+      if (text && annotationTargetConcept) {
+        if (!state.annotations[annotationTargetConcept]) state.annotations[annotationTargetConcept] = [];
+        state.annotations[annotationTargetConcept].unshift({
+          type: type,
+          text: text,
+          timestamp: Date.now()
+        });
+        saveState();
+        renderSidebar();
+        if (historyPanelActive) showHistoryPanel(annotationTargetConcept);
+      }
+      document.getElementById('annotation-modal').classList.remove('visible');
+      annotationTargetConcept = null;
+    });
+    // ============ END ANNOTATION MODAL ============
+
+    // ============ GRAPH MODIFY MODAL ============
+    let graphModifyTargetConcept = null;
+
+    function openGraphModifyModal(conceptId) {
+      const concept = state.concepts.find(c => c.id === conceptId);
+      if (!concept) return;
+
+      graphModifyTargetConcept = conceptId;
+      document.getElementById('graph-modify-title').textContent = 'AI: Modify Graph around "' + concept.name + '"';
+      document.getElementById('graph-modify-text').value = '';
+      document.getElementById('graph-modify-modal').classList.add('visible');
+      document.getElementById('graph-modify-text').focus();
+    }
+
+    document.getElementById('cancel-graph-modify').addEventListener('click', () => {
+      document.getElementById('graph-modify-modal').classList.remove('visible');
+      graphModifyTargetConcept = null;
+    });
+
+    document.getElementById('send-graph-modify').addEventListener('click', () => {
+      const requestText = document.getElementById('graph-modify-text').value.trim();
+      if (requestText && graphModifyTargetConcept && bridgeAvailable) {
+        triggerGraphModification(graphModifyTargetConcept, requestText);
+      }
+      document.getElementById('graph-modify-modal').classList.remove('visible');
+      graphModifyTargetConcept = null;
+    });
+
+    function triggerGraphModification(conceptId, requestText) {
+      if (state.pendingAIRequests[conceptId]) {
+        console.log('AI request already pending for', conceptId);
+        return;
+      }
+
+      const concept = state.concepts.find(c => c.id === conceptId);
+      if (!concept) return;
+
+      // Serialize current graph state
+      const currentGraph = {
+        nodes: state.concepts.map(c => ({
+          id: c.id, name: c.name, desc: c.desc, topic: c.topic,
+          status: c.status, x: Math.round(c.x), y: Math.round(c.y), isIdea: c.isIdea || false
+        })),
+        edges: state.edges.map(e => ({
+          from: e.from, to: e.to, cross: e.cross || false
+        }))
+      };
+
+      const context = {
+        nodeTitle: concept.name,
+        nodeDescription: concept.desc || '',
+        projectName: PROJECT_NAME,
+        currentGraph: currentGraph,
+        prompt: requestText + '\n\nReturn a JSON response with modifications object containing: addNodes, removeNodes, updateNodes, addEdges, removeEdges arrays. Only modify the data, never HTML.'
+      };
+
+      state.pendingAIRequests[conceptId] = true;
+      showNodeLoadingOverlay(conceptId);
+      draw();
+
+      window.BridgeClient.sendAndWait('modify-graph', conceptId, 'brainstorm', context).then(response => {
+        delete state.pendingAIRequests[conceptId];
+        hideNodeLoadingOverlay(conceptId);
+
+        // Try to parse and apply modifications
+        try {
+          applyGraphModifications(response.content, conceptId, requestText);
+        } catch (err) {
+          console.error('Failed to apply modifications:', err);
+          // Store as regular annotation if parsing fails
+          if (!state.annotations[conceptId]) state.annotations[conceptId] = [];
+          state.annotations[conceptId].unshift({
+            type: 'ai',
+            action: 'modify-graph',
+            text: response.content,
+            timestamp: Date.now(),
+            collapsed: false
+          });
+        }
+
+        saveState();
+        renderSidebar();
+        draw();
+      }).catch(err => {
+        delete state.pendingAIRequests[conceptId];
+        hideNodeLoadingOverlay(conceptId);
+        draw();
+        console.error('Graph modification failed:', err);
+        alert('AI request failed: ' + err.message);
+      });
+    }
+
+    function applyGraphModifications(content, conceptId, originalRequest) {
+      // Try to extract JSON from the response
+      let modifications;
+      const jsonMatch = content.match(/\{[\s\S]*"modifications"[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        modifications = parsed.modifications || parsed;
+      } else {
+        throw new Error('No valid modifications JSON found in response');
+      }
+
+      let changeCount = 0;
+
+      // Remove nodes
+      if (modifications.removeNodes && Array.isArray(modifications.removeNodes)) {
+        modifications.removeNodes.forEach(nodeId => {
+          const idx = state.concepts.findIndex(c => c.id === nodeId);
+          if (idx !== -1) {
+            state.concepts.splice(idx, 1);
+            state.edges = state.edges.filter(e => e.from !== nodeId && e.to !== nodeId);
+            changeCount++;
+          }
+        });
+      }
+
+      // Update nodes
+      if (modifications.updateNodes && Array.isArray(modifications.updateNodes)) {
+        modifications.updateNodes.forEach(update => {
+          const concept = state.concepts.find(c => c.id === update.id);
+          if (concept && update.changes) {
+            if (update.changes.name) concept.name = update.changes.name;
+            if (update.changes.desc) concept.desc = update.changes.desc;
+            if (update.changes.status) concept.status = update.changes.status;
+            changeCount++;
+          }
+        });
+      }
+
+      // Add nodes
+      if (modifications.addNodes && Array.isArray(modifications.addNodes)) {
+        const targetConcept = state.concepts.find(c => c.id === conceptId);
+        modifications.addNodes.forEach((node, i) => {
+          if (!node.id || !node.name) return;
+          if (state.concepts.find(c => c.id === node.id)) return; // Skip duplicates
+          state.concepts.push({
+            id: node.id,
+            name: node.name,
+            desc: node.desc || '',
+            topic: node.topic || (targetConcept ? targetConcept.topic : 'general'),
+            status: node.status || 'fuzzy',
+            x: node.x || (targetConcept ? targetConcept.x + 100 + i * 80 : 400 + Math.random() * 200),
+            y: node.y || (targetConcept ? targetConcept.y + 50 + i * 60 : 300 + Math.random() * 200),
+            isIdea: true
+          });
+          changeCount++;
+        });
+      }
+
+      // Remove edges
+      if (modifications.removeEdges && Array.isArray(modifications.removeEdges)) {
+        modifications.removeEdges.forEach(edge => {
+          const idx = state.edges.findIndex(e => e.from === edge.from && e.to === edge.to);
+          if (idx !== -1) {
+            state.edges.splice(idx, 1);
+            changeCount++;
+          }
+        });
+      }
+
+      // Add edges
+      if (modifications.addEdges && Array.isArray(modifications.addEdges)) {
+        modifications.addEdges.forEach(edge => {
+          const fromExists = state.concepts.find(c => c.id === edge.from);
+          const toExists = state.concepts.find(c => c.id === edge.to);
+          if (fromExists && toExists) {
+            const exists = state.edges.some(e => e.from === edge.from && e.to === edge.to);
+            if (!exists) {
+              state.edges.push({
+                from: edge.from,
+                to: edge.to,
+                cross: fromExists.topic !== toExists.topic,
+                userCreated: true
+              });
+              changeCount++;
+            }
+          }
+        });
+      }
+
+      // Store modification record as annotation
+      if (!state.annotations[conceptId]) state.annotations[conceptId] = [];
+      state.annotations[conceptId].unshift({
+        type: 'ai',
+        action: 'modify-graph',
+        text: 'Graph modified: ' + changeCount + ' changes applied.\n\nRequest: ' + originalRequest + '\n\n' + (modifications.explanation || ''),
+        timestamp: Date.now(),
+        collapsed: false
+      });
+
+      console.log('Applied', changeCount, 'graph modifications');
+    }
+    // ============ END GRAPH MODIFY MODAL ============
+
     // ============ NODE LOADING OVERLAY ============
     function showNodeLoadingOverlay(conceptId) {
       const concept = state.concepts.find(c => c.id === conceptId);
@@ -1329,11 +1596,22 @@
       headerInfo.appendChild(subtitle);
       header.appendChild(headerInfo);
 
+      const headerActions = document.createElement('div');
+      headerActions.className = 'history-header-actions';
+
+      const viewIdeasBtn = document.createElement('button');
+      viewIdeasBtn.className = 'view-ideas-btn';
+      viewIdeasBtn.textContent = 'View Ideas';
+      viewIdeasBtn.addEventListener('click', hideHistoryPanel);
+      headerActions.appendChild(viewIdeasBtn);
+
       const closeBtn = document.createElement('button');
       closeBtn.className = 'close-history-btn';
       closeBtn.textContent = '\u00D7';
       closeBtn.addEventListener('click', hideHistoryPanel);
-      header.appendChild(closeBtn);
+      headerActions.appendChild(closeBtn);
+
+      header.appendChild(headerActions);
 
       rightPanel.appendChild(header);
 
@@ -1380,6 +1658,20 @@
 
           item.appendChild(itemHeader);
 
+          // Expand/collapse button at top for long responses
+          let expandBtn = null;
+          if (ann.type === 'ai' && ann.text && ann.text.length > 500) {
+            expandBtn = document.createElement('button');
+            expandBtn.className = 'annotation-expand-btn';
+            expandBtn.textContent = ann.collapsed ? 'Show more' : 'Show less';
+            expandBtn.addEventListener('click', () => {
+              ann.collapsed = !ann.collapsed;
+              saveState();
+              showHistoryPanel(conceptId);
+            });
+            item.appendChild(expandBtn);
+          }
+
           // Content with markdown rendering (parseMarkdown escapes HTML for XSS safety)
           const textContainer = document.createElement('div');
           textContainer.className = 'annotation-text' + (ann.collapsed ? ' annotation-collapsed' : '');
@@ -1391,19 +1683,6 @@
             textContainer.textContent = ann.text;
           }
           item.appendChild(textContainer);
-
-          // Expand/collapse for long responses
-          if (ann.type === 'ai' && ann.text && ann.text.length > 500) {
-            const expandBtn = document.createElement('button');
-            expandBtn.className = 'annotation-expand-btn';
-            expandBtn.textContent = ann.collapsed ? 'Show more' : 'Show less';
-            expandBtn.addEventListener('click', () => {
-              ann.collapsed = !ann.collapsed;
-              saveState();
-              showHistoryPanel(conceptId);
-            });
-            item.appendChild(expandBtn);
-          }
 
           historyContainer.appendChild(item);
         });
@@ -1569,12 +1848,15 @@
     // Initialize bridge client
     initBridgeClient();
 
+    // Set header title from config
+    document.getElementById('header-title').textContent = PROJECT_NAME + ' - Brainstorm Explorer';
+    document.title = PROJECT_NAME + ' - Brainstorm Explorer';
+
     initPresetButtons();
     initTopicSelect();
     resizeCanvas();
     renderSidebar();
     renderIdeas();
-    updatePrompt();
     if (wasLoaded) console.log('Restored saved state from localStorage');
     })(); // End init
   </script>

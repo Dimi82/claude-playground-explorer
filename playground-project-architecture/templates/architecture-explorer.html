@@ -514,7 +514,7 @@
 
     /* ========== AI Bridge Integration ========== */
     .bridge-status {
-      position: fixed; top: 12px; right: 20px; display: flex; align-items: center;
+      position: fixed; top: 12px; left: 50%; transform: translateX(-50%); display: flex; align-items: center;
       gap: 6px; padding: 6px 12px; border-radius: 6px; font-size: 11px;
       background: #21262d; border: 1px solid #30363d; z-index: 200;
     }
@@ -660,6 +660,8 @@
     <div class="context-menu-item" data-action="comment"><span class="icon">C</span> Add Comment</div>
     <div class="context-menu-item" data-action="edit"><span class="icon">E</span> Mark for Edit</div>
     <div class="context-menu-divider"></div>
+    <div class="context-menu-item ai-action" data-ai-action="modify-graph"><span class="icon">🔀</span> AI: Modify Graph</div>
+    <div class="context-menu-divider"></div>
     <div class="context-menu-item" data-action="view"><span class="icon">V</span> View Details</div>
   </div>
 
@@ -681,6 +683,20 @@
       <div class="modal-actions">
         <button class="modal-btn secondary" id="modal-cancel">Cancel</button>
         <button class="modal-btn primary" id="modal-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="graph-modify-modal">
+    <div class="modal">
+      <div class="modal-title" id="graph-modify-title">AI: Modify Graph</div>
+      <div class="modal-field">
+        <label class="modal-label">Describe what changes you'd like the AI to make to the graph structure</label>
+        <textarea class="modal-textarea" id="graph-modify-text" placeholder="Example: Add related security components, Connect this to the authentication flow, Remove outdated nodes..."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn secondary" id="graph-modify-cancel">Cancel</button>
+        <button class="modal-btn primary" id="graph-modify-send">Generate Changes</button>
       </div>
     </div>
   </div>
@@ -810,6 +826,9 @@
     const state = {
       componentData: { ...INITIAL_COMPONENT_DATA },
       treeStructure: JSON.parse(JSON.stringify(INITIAL_TREE_STRUCTURE)),
+      workflowStructure: CONFIG.workflowStructureV2 ? JSON.parse(JSON.stringify(CONFIG.workflowStructureV2)) : null,
+      dataFlowLayers: DATA_FLOW_LAYERS ? JSON.parse(JSON.stringify(DATA_FLOW_LAYERS)) : [],
+      sequenceFlows: SEQUENCE_FLOWS ? JSON.parse(JSON.stringify(SEQUENCE_FLOWS)) : [],
       selectedComponent: null,
       currentView: 'workflow',
       annotations: {},
@@ -1001,7 +1020,15 @@
 
     function saveState() {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ annotations: state.annotations, version: 1 }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          annotations: state.annotations,
+          componentData: state.componentData,
+          treeStructure: state.treeStructure,
+          workflowStructure: state.workflowStructure,
+          dataFlowLayers: state.dataFlowLayers,
+          sequenceFlows: state.sequenceFlows,
+          version: 3
+        }));
       } catch (e) { console.warn('Failed to save:', e); }
     }
 
@@ -1010,7 +1037,26 @@
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
           const p = JSON.parse(saved);
-          if (p.version === 1) { state.annotations = p.annotations || {}; return true; }
+          if (p.version === 3) {
+            state.annotations = p.annotations || {};
+            state.componentData = p.componentData || { ...INITIAL_COMPONENT_DATA };
+            state.treeStructure = p.treeStructure || JSON.parse(JSON.stringify(INITIAL_TREE_STRUCTURE));
+            state.workflowStructure = p.workflowStructure || (CONFIG.workflowStructureV2 ? JSON.parse(JSON.stringify(CONFIG.workflowStructureV2)) : null);
+            state.dataFlowLayers = p.dataFlowLayers || (DATA_FLOW_LAYERS ? JSON.parse(JSON.stringify(DATA_FLOW_LAYERS)) : []);
+            state.sequenceFlows = p.sequenceFlows || (SEQUENCE_FLOWS ? JSON.parse(JSON.stringify(SEQUENCE_FLOWS)) : []);
+            return true;
+          } else if (p.version === 2) {
+            // Migrate from v2
+            state.annotations = p.annotations || {};
+            state.componentData = p.componentData || { ...INITIAL_COMPONENT_DATA };
+            state.treeStructure = p.treeStructure || JSON.parse(JSON.stringify(INITIAL_TREE_STRUCTURE));
+            state.workflowStructure = p.workflowStructure || (CONFIG.workflowStructureV2 ? JSON.parse(JSON.stringify(CONFIG.workflowStructureV2)) : null);
+            return true;
+          } else if (p.version === 1) {
+            // Migrate from v1: only had annotations
+            state.annotations = p.annotations || {};
+            return true;
+          }
         }
       } catch (e) { console.warn('Failed to load:', e); }
       return false;
@@ -1114,7 +1160,7 @@
       canvas.textContent = '';
       var diagram = document.createElement('div');
       diagram.className = 'data-flow-diagram';
-      DATA_FLOW_LAYERS.forEach(function(layer) {
+      state.dataFlowLayers.forEach(function(layer) {
         var layerDiv = document.createElement('div');
         layerDiv.className = 'flow-layer';
         var label = document.createElement('div');
@@ -1177,7 +1223,7 @@
     function renderSequenceView() {
       var canvas = document.getElementById('diagram-content');
       canvas.textContent = '';
-      if (!SEQUENCE_FLOWS || SEQUENCE_FLOWS.length === 0) {
+      if (!state.sequenceFlows || state.sequenceFlows.length === 0) {
         var placeholder = document.createElement('div');
         placeholder.style.cssText = 'color: #8b949e; padding: 40px; text-align: center;';
         placeholder.textContent = 'No sequence flows defined';
@@ -1186,7 +1232,7 @@
       }
       var diagram = document.createElement('div');
       diagram.className = 'sequence-diagram';
-      SEQUENCE_FLOWS.forEach(function(flow) {
+      state.sequenceFlows.forEach(function(flow) {
         var flowContainer = createSequenceFlow(flow);
         diagram.appendChild(flowContainer);
       });
@@ -1428,7 +1474,9 @@
       var canvas = document.getElementById('diagram-content');
       canvas.textContent = '';
 
-      var workflow = CONFIG.workflowStructureV2;
+      var workflow = state.workflowStructure;
+      console.log('renderEnhancedWorkflow - workflow:', workflow);
+      console.log('renderEnhancedWorkflow - nodes count:', workflow ? workflow.nodes.length : 0);
       if (!workflow || !workflow.nodes || workflow.nodes.length === 0) {
         renderWorkflowView();
         return;
@@ -1477,16 +1525,18 @@
       // Render edges after DOM layout
       setTimeout(function() {
         var diagramRect = diagram.getBoundingClientRect();
-        // Set explicit SVG dimensions to ensure proper rendering
-        svg.setAttribute('width', diagramRect.width);
-        svg.setAttribute('height', diagramRect.height);
+        // Account for zoom scale when setting SVG dimensions
+        var scaledWidth = diagramRect.width / zoom.scale;
+        var scaledHeight = diagramRect.height / zoom.scale;
+        svg.setAttribute('width', scaledWidth);
+        svg.setAttribute('height', scaledHeight);
 
         var svgRect = diagram.getBoundingClientRect();
         layout.edgeRoutes.forEach(function(route) {
           var fromEl = nodeElements.get(route.from);
           var toEl = nodeElements.get(route.to);
           if (fromEl && toEl) {
-            var edge = createWorkflowEdge(route, fromEl, toEl, svgRect);
+            var edge = createWorkflowEdge(route, fromEl, toEl, svgRect, zoom.scale);
             if (edge) svg.appendChild(edge);
           }
         });
@@ -1542,25 +1592,27 @@
       return wrapper;
     }
 
-    function createWorkflowEdge(route, fromEl, toEl, svgRect) {
+    function createWorkflowEdge(route, fromEl, toEl, svgRect, zoomScale) {
       var fromRect = fromEl.getBoundingClientRect();
       var toRect = toEl.getBoundingClientRect();
+      var scale = zoomScale || 1;
 
       // Check if source is a decision node (diamond shape)
       var isFromDecision = fromEl.classList.contains('workflow-node-decision');
 
-      var fromCenterX = fromRect.left + fromRect.width / 2 - svgRect.left;
-      var fromCenterY = fromRect.top + fromRect.height / 2 - svgRect.top;
-      var toX = toRect.left + toRect.width / 2 - svgRect.left;
-      var toY = toRect.top - svgRect.top;
+      // Divide by zoom scale to get unscaled coordinates for SVG
+      var fromCenterX = (fromRect.left + fromRect.width / 2 - svgRect.left) / scale;
+      var fromCenterY = (fromRect.top + fromRect.height / 2 - svgRect.top) / scale;
+      var toX = (toRect.left + toRect.width / 2 - svgRect.left) / scale;
+      var toY = (toRect.top - svgRect.top) / scale;
 
       var fromX, fromY;
 
       if (isFromDecision) {
         // For decision nodes (diamond), calculate exit points based on direction
         // Diamond has corners at top, bottom, left, right of the center
-        var halfWidth = fromRect.width / 2;
-        var halfHeight = fromRect.height / 2;
+        var halfWidth = (fromRect.width / 2) / scale;
+        var halfHeight = (fromRect.height / 2) / scale;
 
         if (route.branch === 'secondary') {
           // Secondary branch exits from the right corner of the diamond
@@ -1574,7 +1626,7 @@
       } else {
         // Regular nodes: exit from bottom center
         fromX = fromCenterX;
-        fromY = fromRect.bottom - svgRect.top;
+        fromY = (fromRect.bottom - svgRect.top) / scale;
       }
 
       var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -1624,7 +1676,7 @@
 
     function renderCurrentView() {
       if (state.currentView === 'workflow') {
-        if (CONFIG.workflowStructureV2) {
+        if (state.workflowStructure) {
           renderEnhancedWorkflow();
         } else {
           renderWorkflowView();
@@ -1752,6 +1804,19 @@
           });
           header.appendChild(deleteBtn);
           item.appendChild(header);
+          // Add expand/collapse button at top for long AI responses
+          var expandBtn = null;
+          if (a.type === 'ai' && a.text && a.text.length > 200) {
+            expandBtn = document.createElement('button');
+            expandBtn.className = 'annotation-expand-btn';
+            expandBtn.textContent = a.collapsed ? 'Show more' : 'Show less';
+            expandBtn.addEventListener('click', function() {
+              a.collapsed = !a.collapsed;
+              saveState();
+              updateDetails();
+            });
+            item.appendChild(expandBtn);
+          }
           var textContainer = document.createElement('div');
           textContainer.className = 'annotation-text' + (a.collapsed ? ' annotation-collapsed' : '');
           // Use markdown rendering for AI responses, plain text for user annotations
@@ -1763,41 +1828,14 @@
             textContainer.textContent = a.text;
           }
           item.appendChild(textContainer);
-          // Add expand/collapse button for long AI responses
-          if (a.type === 'ai' && a.text && a.text.length > 200) {
-            var expandBtn = document.createElement('button');
-            expandBtn.className = 'annotation-expand-btn';
-            expandBtn.textContent = a.collapsed ? 'Show more' : 'Show less';
-            expandBtn.addEventListener('click', function() {
-              a.collapsed = !a.collapsed;
-              saveState();
-              updateDetails();
-            });
-            item.appendChild(expandBtn);
-          }
           if (a.prompt) {
-            var promptHeader = document.createElement('div');
-            promptHeader.className = 'annotation-prompt-header';
-            var promptLabel = document.createElement('span');
-            promptLabel.className = 'annotation-prompt-label';
-            promptLabel.textContent = 'Prompt for Claude';
-            promptHeader.appendChild(promptLabel);
-            var copyBtn = document.createElement('button');
-            copyBtn.className = 'annotation-copy-btn';
-            copyBtn.textContent = 'Copy';
-            copyBtn.addEventListener('click', function() {
-              navigator.clipboard.writeText(a.prompt).then(function() {
-                copyBtn.textContent = 'Copied!';
-                copyBtn.classList.add('copied');
-                setTimeout(function() { copyBtn.textContent = 'Copy'; copyBtn.classList.remove('copied'); }, 1500);
-              });
-            });
-            promptHeader.appendChild(copyBtn);
-            item.appendChild(promptHeader);
             var promptDiv = document.createElement('div');
             promptDiv.className = 'annotation-prompt';
             promptDiv.textContent = a.prompt;
-            item.appendChild(promptDiv);
+            // Only show prompt for AI annotations, not for user comments/edits
+            if (a.type === 'ai') {
+              item.appendChild(promptDiv);
+            }
           }
           annoSection.appendChild(item);
         });
@@ -1920,14 +1958,15 @@
       var type = document.getElementById('annotation-type').value;
       var text = document.getElementById('annotation-text').value.trim();
       if (text) {
-        var prompt = generatePromptForAnnotation(state.contextTarget, type, text);
-        if (!state.annotations[state.contextTarget]) state.annotations[state.contextTarget] = [];
-        state.annotations[state.contextTarget].push({ type: type, text: text, prompt: prompt, timestamp: Date.now() });
-        saveState(); updateAnnotationsSummary(); renderCurrentView(); renderTree(); selectComponent(state.contextTarget);
-
-        // If it's a question, also send to AI
+        // If it's a question and AI is available, send to AI (AI response includes the question)
         if (type === 'question' && bridgeAvailable) {
           triggerAIQuestion(state.contextTarget, text);
+        } else {
+          // For comments/edits, or questions without AI, save as regular annotation
+          var prompt = generatePromptForAnnotation(state.contextTarget, type, text);
+          if (!state.annotations[state.contextTarget]) state.annotations[state.contextTarget] = [];
+          state.annotations[state.contextTarget].push({ type: type, text: text, prompt: prompt, timestamp: Date.now() });
+          saveState(); updateAnnotationsSummary(); renderCurrentView(); renderTree(); selectComponent(state.contextTarget);
         }
       }
       document.getElementById('modal-overlay').classList.remove('visible');
@@ -2085,7 +2124,11 @@
           var action = item.dataset.aiAction;
           var componentId = state.contextTarget;
           if (componentId) {
-            triggerAIAction(action, componentId);
+            if (action === 'modify-graph') {
+              openGraphModifyModal(componentId);
+            } else {
+              triggerAIAction(action, componentId);
+            }
           }
           hideContextMenu();
         });
@@ -2228,6 +2271,320 @@
         if (loader) loader.remove();
       }
     }
+
+    // ============ GRAPH MODIFY MODAL ============
+    var graphModifyTargetComponent = null;
+
+    function openGraphModifyModal(componentId) {
+      var data = state.componentData[componentId] || { title: componentId };
+      graphModifyTargetComponent = componentId;
+      document.getElementById('graph-modify-title').textContent = 'AI: Modify Graph around "' + data.title + '"';
+      document.getElementById('graph-modify-text').value = '';
+      document.getElementById('graph-modify-modal').classList.add('visible');
+      document.getElementById('graph-modify-text').focus();
+    }
+
+    document.getElementById('graph-modify-cancel').addEventListener('click', function() {
+      document.getElementById('graph-modify-modal').classList.remove('visible');
+      graphModifyTargetComponent = null;
+    });
+
+    document.getElementById('graph-modify-send').addEventListener('click', function() {
+      var requestText = document.getElementById('graph-modify-text').value.trim();
+      if (requestText && graphModifyTargetComponent && bridgeAvailable) {
+        triggerGraphModification(graphModifyTargetComponent, requestText);
+      }
+      document.getElementById('graph-modify-modal').classList.remove('visible');
+      graphModifyTargetComponent = null;
+    });
+
+    document.getElementById('graph-modify-modal').addEventListener('click', function(e) {
+      if (e.target === document.getElementById('graph-modify-modal')) {
+        document.getElementById('graph-modify-modal').classList.remove('visible');
+        graphModifyTargetComponent = null;
+      }
+    });
+
+    function triggerGraphModification(componentId, requestText) {
+      if (state.pendingAIRequests[componentId]) {
+        console.log('AI request already pending for', componentId);
+        return;
+      }
+
+      var data = state.componentData[componentId] || { title: componentId };
+
+      // Serialize current graph state
+      var currentGraph = {
+        components: Object.keys(state.componentData).map(function(id) {
+          var c = state.componentData[id];
+          return { id: id, title: c.title, description: c.description, file: c.file };
+        }),
+        workflow: WORKFLOW_STRUCTURE,
+        treeStructure: state.treeStructure
+      };
+
+      var context = {
+        nodeTitle: data.title,
+        nodeDescription: data.description || '',
+        projectName: PROJECT_NAME,
+        currentGraph: currentGraph,
+        prompt: requestText + '\n\nReturn a JSON response with modifications object containing: addNodes, removeNodes, updateNodes arrays. Only modify the data, never HTML.'
+      };
+
+      state.pendingAIRequests[componentId] = true;
+      renderCurrentView();
+
+      window.BridgeClient.sendAndWait('modify-graph', componentId, 'architecture', context).then(function(response) {
+        delete state.pendingAIRequests[componentId];
+
+        console.log('Raw response.content length:', response.content ? response.content.length : 0);
+        console.log('Raw response.content:', response.content);
+
+        // Try to parse and apply modifications
+        try {
+          applyGraphModifications(response.content, componentId, requestText);
+        } catch (err) {
+          console.error('Failed to apply modifications:', err);
+          // Store as regular annotation if parsing fails
+          if (!state.annotations[componentId]) state.annotations[componentId] = [];
+          state.annotations[componentId].unshift({
+            type: 'ai',
+            action: 'modify-graph',
+            text: response.content,
+            timestamp: Date.now(),
+            collapsed: false
+          });
+        }
+
+        saveState();
+        updateAnnotationsSummary();
+        renderCurrentView();
+        renderTree();
+        if (state.selectedComponent === componentId) {
+          updateDetails();
+        }
+      }).catch(function(err) {
+        delete state.pendingAIRequests[componentId];
+        console.error('Graph modification failed:', err);
+        alert('AI request failed: ' + err.message);
+        renderCurrentView();
+      });
+    }
+
+    function applyGraphModifications(content, componentId, originalRequest) {
+      // Try to extract JSON from the response
+      var modifications;
+
+      // Find ```json and then find the LAST ``` to handle nested code blocks in content
+      var jsonStartMatch = content.match(/```json\s*/);
+      if (jsonStartMatch) {
+        var startIdx = jsonStartMatch.index + jsonStartMatch[0].length;
+        // Find the last ``` in the content
+        var lastBacktickIdx = content.lastIndexOf('```');
+        if (lastBacktickIdx > startIdx) {
+          var jsonStr = content.substring(startIdx, lastBacktickIdx).trim();
+          console.log('Extracted JSON length:', jsonStr.length);
+          try {
+            var parsed = JSON.parse(jsonStr);
+            modifications = parsed.modifications || parsed;
+          } catch (parseErr) {
+            console.error('JSON parse error:', parseErr.message);
+            console.error('JSON string (first 500):', jsonStr.substring(0, 500));
+            console.error('JSON string (last 500):', jsonStr.substring(jsonStr.length - 500));
+            throw parseErr;
+          }
+        } else {
+          throw new Error('No closing ``` found for JSON block');
+        }
+      } else {
+        // Try to find raw JSON without markdown code block
+        var rawMatch = content.match(/\{[\s\S]*"(modifications|addNodes|removeNodes|updateNodes)"[\s\S]*\}/);
+        if (rawMatch) {
+          var parsed = JSON.parse(rawMatch[0]);
+          modifications = parsed.modifications || parsed;
+        } else {
+          throw new Error('No valid modifications JSON found in response');
+        }
+      }
+
+      var changeCount = 0;
+
+      // Helper to find parent node in workflow for positioning new nodes
+      function findParentInWorkflow(parentId) {
+        if (!state.workflowStructure || !state.workflowStructure.nodes) return null;
+        return state.workflowStructure.nodes.find(function(n) { return n.id === parentId; });
+      }
+
+      // Remove nodes/components
+      if (modifications.removeNodes && Array.isArray(modifications.removeNodes)) {
+        modifications.removeNodes.forEach(function(nodeId) {
+          if (state.componentData[nodeId]) {
+            delete state.componentData[nodeId];
+            // Remove from tree structure
+            state.treeStructure.forEach(function(section) {
+              section.items = section.items.filter(function(item) { return item.id !== nodeId; });
+            });
+            // Remove from workflow structure
+            if (state.workflowStructure && state.workflowStructure.nodes) {
+              state.workflowStructure.nodes = state.workflowStructure.nodes.filter(function(n) { return n.id !== nodeId; });
+            }
+            if (state.workflowStructure && state.workflowStructure.edges) {
+              state.workflowStructure.edges = state.workflowStructure.edges.filter(function(e) { return e.from !== nodeId && e.to !== nodeId; });
+            }
+            changeCount++;
+          }
+        });
+      }
+
+      // Update nodes/components
+      if (modifications.updateNodes && Array.isArray(modifications.updateNodes)) {
+        modifications.updateNodes.forEach(function(update) {
+          console.log('Trying to update node:', update.id, 'exists in componentData:', !!state.componentData[update.id]);
+          if (state.componentData[update.id]) {
+            var comp = state.componentData[update.id];
+            // Support both formats: update.changes.X and update.X, plus name/desc aliases
+            var changes = update.changes || update;
+            if (changes.title || changes.name) comp.title = changes.title || changes.name;
+            if (changes.description || changes.desc) comp.description = changes.description || changes.desc;
+            if (changes.file) comp.file = changes.file;
+            // Also update workflow node label if exists
+            if (state.workflowStructure && state.workflowStructure.nodes) {
+              var wfNode = state.workflowStructure.nodes.find(function(n) { return n.id === update.id; });
+              console.log('Workflow node found:', !!wfNode, 'for id:', update.id);
+              if (wfNode && (changes.title || changes.name)) {
+                wfNode.label = changes.title || changes.name;
+              }
+            }
+            changeCount++;
+          }
+        });
+      }
+
+      // Add nodes/components - support both title/description and name/desc formats
+      if (modifications.addNodes && Array.isArray(modifications.addNodes)) {
+        var parentNode = findParentInWorkflow(componentId);
+        var parentLayer = parentNode ? parentNode.layer : 0;
+        var addedCount = 0;
+
+        modifications.addNodes.forEach(function(node) {
+          var nodeTitle = node.title || node.name;
+          var nodeDesc = node.description || node.desc || '';
+          if (!node.id || !nodeTitle) return;
+          if (state.componentData[node.id]) return; // Skip duplicates
+
+          state.componentData[node.id] = {
+            title: nodeTitle,
+            description: nodeDesc,
+            file: node.file || ''
+          };
+
+          // Add to tree structure (first section or create new one)
+          if (state.treeStructure.length > 0) {
+            state.treeStructure[0].items.push({
+              id: node.id,
+              icon: node.isIdea ? '💡' : '📦',
+              iconClass: node.isIdea ? 'idea' : 'component'
+            });
+          }
+
+          // Add to workflow structure for visual display
+          if (state.workflowStructure) {
+            if (!state.workflowStructure.nodes) state.workflowStructure.nodes = [];
+            // Inherit phase from parent node for consistent styling
+            var parentWfNode = findParentInWorkflow(componentId);
+            var nodePhase = parentWfNode ? parentWfNode.phase : 'phase-1';
+            state.workflowStructure.nodes.push({
+              id: node.id,
+              componentId: node.id,
+              label: nodeTitle,
+              type: 'process',
+              phase: nodePhase
+            });
+
+            // Automatically create edge from parent (componentId) to new node
+            // This ensures new nodes appear as children of the selected node
+            if (!state.workflowStructure.edges) state.workflowStructure.edges = [];
+            var edgeExists = state.workflowStructure.edges.some(function(e) {
+              return e.from === componentId && e.to === node.id;
+            });
+            if (!edgeExists) {
+              state.workflowStructure.edges.push({
+                from: componentId,
+                to: node.id,
+                label: ''
+              });
+            }
+
+            addedCount++;
+          }
+
+          // Add to data flow layers - find the layer containing the parent and add there
+          if (state.dataFlowLayers && state.dataFlowLayers.length > 0) {
+            var parentLayerIdx = -1;
+            for (var i = 0; i < state.dataFlowLayers.length; i++) {
+              if (state.dataFlowLayers[i].items && state.dataFlowLayers[i].items.indexOf(componentId) !== -1) {
+                parentLayerIdx = i;
+                break;
+              }
+            }
+            if (parentLayerIdx !== -1) {
+              state.dataFlowLayers[parentLayerIdx].items.push(node.id);
+            }
+          }
+
+          changeCount++;
+        });
+      }
+
+      // Add edges to workflow
+      if (modifications.addEdges && Array.isArray(modifications.addEdges)) {
+        modifications.addEdges.forEach(function(edge) {
+          if (state.workflowStructure) {
+            if (!state.workflowStructure.edges) state.workflowStructure.edges = [];
+            // Check if edge already exists
+            var exists = state.workflowStructure.edges.some(function(e) {
+              return e.from === edge.from && e.to === edge.to;
+            });
+            if (!exists) {
+              state.workflowStructure.edges.push({
+                from: edge.from,
+                to: edge.to,
+                label: edge.label || ''
+              });
+              changeCount++;
+            }
+          }
+        });
+      }
+
+      // Remove edges from workflow
+      if (modifications.removeEdges && Array.isArray(modifications.removeEdges)) {
+        modifications.removeEdges.forEach(function(edge) {
+          if (state.workflowStructure && state.workflowStructure.edges) {
+            var idx = state.workflowStructure.edges.findIndex(function(e) {
+              return e.from === edge.from && e.to === edge.to;
+            });
+            if (idx !== -1) {
+              state.workflowStructure.edges.splice(idx, 1);
+              changeCount++;
+            }
+          }
+        });
+      }
+
+      // Store modification record as annotation
+      if (!state.annotations[componentId]) state.annotations[componentId] = [];
+      state.annotations[componentId].unshift({
+        type: 'ai',
+        action: 'modify-graph',
+        text: 'Graph modified: ' + changeCount + ' changes applied.\n\nRequest: ' + originalRequest + '\n\n' + (modifications.explanation || ''),
+        timestamp: Date.now(),
+        collapsed: false
+      });
+
+      console.log('Applied', changeCount, 'graph modifications');
+    }
+    // ============ END GRAPH MODIFY MODAL ============
     // ============ END AI BRIDGE INTEGRATION ============
 
     var wasLoaded = loadState();
