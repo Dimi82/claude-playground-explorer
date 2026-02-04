@@ -418,6 +418,20 @@
       color: #8b949e;
     }
 
+    .workflow-node-new-tag {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      background: #238636;
+      color: white;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
     .workflow-node-decision {
       width: 120px;
       height: 120px;
@@ -1039,7 +1053,8 @@
           const p = JSON.parse(saved);
           if (p.version === 3) {
             state.annotations = p.annotations || {};
-            state.componentData = p.componentData || { ...INITIAL_COMPONENT_DATA };
+            // Merge saved componentData with initial to preserve isNew flags from config
+            state.componentData = mergeComponentData(INITIAL_COMPONENT_DATA, p.componentData);
             state.treeStructure = p.treeStructure || JSON.parse(JSON.stringify(INITIAL_TREE_STRUCTURE));
             state.workflowStructure = p.workflowStructure || (CONFIG.workflowStructureV2 ? JSON.parse(JSON.stringify(CONFIG.workflowStructureV2)) : null);
             state.dataFlowLayers = p.dataFlowLayers || (DATA_FLOW_LAYERS ? JSON.parse(JSON.stringify(DATA_FLOW_LAYERS)) : []);
@@ -1048,7 +1063,7 @@
           } else if (p.version === 2) {
             // Migrate from v2
             state.annotations = p.annotations || {};
-            state.componentData = p.componentData || { ...INITIAL_COMPONENT_DATA };
+            state.componentData = mergeComponentData(INITIAL_COMPONENT_DATA, p.componentData);
             state.treeStructure = p.treeStructure || JSON.parse(JSON.stringify(INITIAL_TREE_STRUCTURE));
             state.workflowStructure = p.workflowStructure || (CONFIG.workflowStructureV2 ? JSON.parse(JSON.stringify(CONFIG.workflowStructureV2)) : null);
             return true;
@@ -1060,6 +1075,24 @@
         }
       } catch (e) { console.warn('Failed to load:', e); }
       return false;
+    }
+
+    // Merge saved componentData with initial config, preserving isNew from config
+    function mergeComponentData(initial, saved) {
+      if (!saved) return { ...initial };
+      var merged = { ...initial };
+      Object.keys(saved).forEach(function(key) {
+        if (merged[key]) {
+          // Preserve isNew from initial config, merge other saved properties
+          var isNew = merged[key].isNew;
+          merged[key] = { ...merged[key], ...saved[key] };
+          if (isNew) merged[key].isNew = isNew;
+        } else {
+          // New component added by user, keep as-is
+          merged[key] = saved[key];
+        }
+      });
+      return merged;
     }
 
     function clearState() {
@@ -1578,11 +1611,20 @@
         title.textContent = node.label || 'Process';
         wrapper.appendChild(title);
 
-        if (state.componentData[componentId]) {
+        var compData = state.componentData[componentId];
+        if (compData) {
           var subtitle = document.createElement('div');
           subtitle.className = 'workflow-node-subtitle';
-          subtitle.textContent = state.componentData[componentId].badgeLabel || '';
+          subtitle.textContent = compData.badgeLabel || '';
           wrapper.appendChild(subtitle);
+        }
+
+        // Show "New" tag for newly added nodes (from componentData or node.isNew)
+        if ((compData && compData.isNew) || node.isNew) {
+          var newTag = document.createElement('div');
+          newTag.className = 'workflow-node-new-tag';
+          newTag.textContent = 'New';
+          wrapper.appendChild(newTag);
         }
       }
 
@@ -2563,7 +2605,8 @@
           state.componentData[node.id] = {
             title: nodeTitle,
             description: nodeDesc,
-            file: node.file || ''
+            file: node.file || '',
+            isNew: true
           };
 
           // Add to tree structure (first section or create new one)
