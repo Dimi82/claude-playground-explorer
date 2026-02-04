@@ -590,7 +590,7 @@
   <header>
     <h1 id="header-title">Architecture Explorer</h1>
     <div class="header-actions">
-      <button class="header-btn" id="export-btn">Export Annotations</button>
+      <button class="header-btn" id="export-btn">Export Documentation</button>
       <button class="header-btn" id="reset-btn">Reset All</button>
       <button class="header-btn" id="clear-btn">Clear Annotations</button>
     </div>
@@ -1862,9 +1862,10 @@
         descTitle.className = 'detail-section-title';
         descTitle.textContent = 'Description';
         descSection.appendChild(descTitle);
-        var descText = document.createElement('p');
-        descText.className = 'detail-text';
-        descText.textContent = data.description;
+        var descText = document.createElement('div');
+        descText.className = 'detail-text markdown';
+        // parseMarkdown escapes HTML before processing, safe to use innerHTML
+        descText.innerHTML = parseMarkdown(data.description);
         descSection.appendChild(descText);
         detailContent.appendChild(descSection);
 
@@ -1879,7 +1880,9 @@
           respList.className = 'detail-list';
           data.responsibilities.forEach(function(r) {
             var li = document.createElement('li');
-            li.textContent = r;
+            li.className = 'markdown';
+            // parseMarkdown escapes HTML before processing, safe to use innerHTML
+            li.innerHTML = parseMarkdown(r);
             respList.appendChild(li);
           });
           respSection.appendChild(respList);
@@ -2032,15 +2035,97 @@
     });
 
     document.getElementById('export-btn').addEventListener('click', function() {
-      var output = 'Architecture Annotations - ' + PROJECT_NAME + '\n' + '='.repeat(50) + '\n\n';
-      Object.keys(state.annotations).forEach(function(key) {
-        var data = state.componentData[key] || { title: key };
-        output += '## ' + data.title + '\n';
-        state.annotations[key].forEach(function(a) { output += '- [' + a.type.toUpperCase() + '] ' + a.text + '\n'; });
-        output += '\n';
-      });
-      navigator.clipboard.writeText(output).then(function() { alert('Annotations exported to clipboard!'); });
+      exportArchitectureDocumentation();
     });
+
+    // ============ DOCUMENTATION EXPORT ============
+    function exportArchitectureDocumentation() {
+      if (!bridgeAvailable) {
+        alert('AI not connected. Please ensure the AI bridge is running to generate documentation.');
+        return;
+      }
+
+      // Show loading state
+      var exportBtn = document.getElementById('export-btn');
+      var originalText = exportBtn.textContent;
+      exportBtn.textContent = 'Generating...';
+      exportBtn.disabled = true;
+
+      // Build comprehensive context for AI
+      var context = {
+        projectName: PROJECT_NAME,
+        componentData: state.componentData,
+        treeStructure: state.treeStructure,
+        workflowStructure: state.workflowStructure,
+        dataFlowLayers: state.dataFlowLayers,
+        sequenceFlows: state.sequenceFlows,
+        annotations: state.annotations,
+        prompt: buildExportPrompt()
+      };
+
+      window.BridgeClient.sendAndWait('export-documentation', 'export', 'architecture', context).then(function(response) {
+        exportBtn.textContent = originalText;
+        exportBtn.disabled = false;
+
+        var date = new Date().toISOString().split('T')[0];
+        var filename = PROJECT_NAME.toLowerCase().replace(/\s+/g, '-') + '-findings-' + date + '.md';
+        downloadMarkdownFile(response.content, filename);
+      }).catch(function(err) {
+        exportBtn.textContent = originalText;
+        exportBtn.disabled = false;
+        console.error('Export failed:', err);
+        alert('Failed to generate documentation: ' + err.message);
+      });
+    }
+
+    function buildExportPrompt() {
+      var componentCount = Object.keys(state.componentData || {}).length;
+      var annotationCounts = { question: 0, comment: 0, edit: 0, ai: 0 };
+      Object.values(state.annotations || {}).forEach(function(anns) {
+        if (!anns || !Array.isArray(anns)) return;
+        anns.forEach(function(a) {
+          if (a && a.type) annotationCounts[a.type] = (annotationCounts[a.type] || 0) + 1;
+        });
+      });
+
+      return 'Generate a comprehensive technical architecture specification document in Markdown format for "' + PROJECT_NAME + '".\n\n' +
+        'You have access to the complete graph data including:\n' +
+        '- ' + componentCount + ' architectural components with descriptions, responsibilities, and code snippets\n' +
+        '- Workflow structure showing processing phases and node connections\n' +
+        '- Data flow layers showing system architecture\n' +
+        '- Sequence flows showing interaction patterns\n' +
+        '- ' + annotationCounts.ai + ' AI analysis insights gathered during exploration\n' +
+        '- ' + annotationCounts.question + ' questions raised about the architecture\n' +
+        '- ' + annotationCounts.comment + ' observations and comments\n' +
+        '- ' + annotationCounts.edit + ' items marked for changes\n\n' +
+        'Create a polished, professional technical specification document that:\n' +
+        '1. Opens with an executive summary synthesizing key insights\n' +
+        '2. Describes the system architecture with clear component relationships\n' +
+        '3. Includes ASCII diagrams for workflow and data flow visualization\n' +
+        '4. Documents each component with its purpose, responsibilities, and any analysis/insights gathered\n' +
+        '5. Integrates AI insights and user annotations naturally into the narrative (not as separate sections)\n' +
+        '6. Highlights open questions and suggested improvements\n' +
+        '7. Concludes with recommendations and next steps\n\n' +
+        'The document should read as a cohesive technical specification, not a data dump. ' +
+        'Synthesize and summarize the insights rather than just listing them.\n\n' +
+        'Return ONLY the markdown content, no preamble or explanation.';
+    }
+
+    function downloadMarkdownFile(content, filename) {
+      var blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(function() {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 100);
+    }
+    // ============ END DOCUMENTATION EXPORT ============
 
     document.getElementById('reset-btn').addEventListener('click', clearState);
     document.getElementById('clear-btn').addEventListener('click', function() {
@@ -2410,9 +2495,12 @@
       var changeCount = 0;
 
       // Helper to find parent node in workflow for positioning new nodes
+      // Check both id and componentId since workflow nodes may use either
       function findParentInWorkflow(parentId) {
         if (!state.workflowStructure || !state.workflowStructure.nodes) return null;
-        return state.workflowStructure.nodes.find(function(n) { return n.id === parentId; });
+        return state.workflowStructure.nodes.find(function(n) {
+          return n.id === parentId || n.componentId === parentId;
+        });
       }
 
       // Remove nodes/components
@@ -2501,15 +2589,17 @@
               phase: nodePhase
             });
 
-            // Automatically create edge from parent (componentId) to new node
+            // Automatically create edge from parent to new node
             // This ensures new nodes appear as children of the selected node
+            // Use parent's workflow node id (not componentId) for edge source
             if (!state.workflowStructure.edges) state.workflowStructure.edges = [];
+            var parentEdgeId = parentWfNode ? parentWfNode.id : componentId;
             var edgeExists = state.workflowStructure.edges.some(function(e) {
-              return e.from === componentId && e.to === node.id;
+              return e.from === parentEdgeId && e.to === node.id;
             });
-            if (!edgeExists) {
+            if (!edgeExists && parentWfNode) {
               state.workflowStructure.edges.push({
-                from: componentId,
+                from: parentEdgeId,
                 to: node.id,
                 label: ''
               });

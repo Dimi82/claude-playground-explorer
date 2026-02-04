@@ -245,6 +245,7 @@
     <header>
       <h1 id="header-title">Brainstorm Explorer</h1>
       <div class="presets" id="presets-container">
+        <button class="preset-btn" id="export-btn" style="background: #238636;">Export Findings</button>
         <button class="preset-btn active" data-preset="all">All Topics</button>
       </div>
     </header>
@@ -1013,6 +1014,104 @@
 
     document.getElementById('reset-btn').addEventListener('click', clearState);
 
+    document.getElementById('export-btn').addEventListener('click', function() {
+      exportBrainstormFindings();
+    });
+
+    // ============ DOCUMENTATION EXPORT ============
+    function exportBrainstormFindings() {
+      if (!bridgeAvailable) {
+        alert('AI not connected. Please ensure the AI bridge is running to generate documentation.');
+        return;
+      }
+
+      // Show loading state
+      var exportBtn = document.getElementById('export-btn');
+      var originalText = exportBtn.textContent;
+      exportBtn.textContent = 'Generating...';
+      exportBtn.disabled = true;
+
+      // Build comprehensive context for AI
+      var context = {
+        projectName: PROJECT_NAME,
+        topicNames: TOPIC_NAMES,
+        colors: COLORS,
+        concepts: state.concepts,
+        edges: state.edges,
+        ideas: state.ideas,
+        annotations: state.annotations,
+        prompt: buildBrainstormExportPrompt()
+      };
+
+      window.BridgeClient.sendAndWait('export-documentation', 'export', 'brainstorm', context).then(function(response) {
+        exportBtn.textContent = originalText;
+        exportBtn.disabled = false;
+
+        var date = new Date().toISOString().split('T')[0];
+        var filename = PROJECT_NAME.toLowerCase().replace(/\s+/g, '-') + '-findings-' + date + '.md';
+        downloadMarkdownFile(response.content, filename);
+      }).catch(function(err) {
+        exportBtn.textContent = originalText;
+        exportBtn.disabled = false;
+        console.error('Export failed:', err);
+        alert('Failed to generate documentation: ' + err.message);
+      });
+    }
+
+    function buildBrainstormExportPrompt() {
+      var statusCounts = { know: 0, fuzzy: 0, unknown: 0, explore: 0 };
+      (state.concepts || []).forEach(function(c) { if (c && c.status) statusCounts[c.status]++; });
+
+      var totalConcepts = (state.concepts || []).length;
+      var totalIdeas = (state.ideas || []).length;
+      var totalConnections = (state.edges || []).length;
+      var annotationCounts = { question: 0, comment: 0, edit: 0, ai: 0 };
+      Object.values(state.annotations || {}).forEach(function(anns) {
+        if (!anns || !Array.isArray(anns)) return;
+        anns.forEach(function(a) {
+          if (a && a.type) annotationCounts[a.type] = (annotationCounts[a.type] || 0) + 1;
+        });
+      });
+
+      return 'Generate a comprehensive research brief document in Markdown format for the brainstorming session "' + PROJECT_NAME + '".\n\n' +
+        'You have access to the complete brainstorm data including:\n' +
+        '- ' + totalConcepts + ' concepts organized across ' + Object.keys(TOPIC_NAMES).length + ' topics\n' +
+        '- Status distribution: Know=' + statusCounts.know + ', Fuzzy=' + statusCounts.fuzzy + ', Unknown=' + statusCounts.unknown + ', Explore=' + statusCounts.explore + '\n' +
+        '- ' + totalConnections + ' connections/relationships between concepts\n' +
+        '- ' + totalIdeas + ' captured ideas/innovations\n' +
+        '- ' + annotationCounts.ai + ' AI analysis insights gathered during exploration\n' +
+        '- ' + annotationCounts.question + ' questions raised\n' +
+        '- ' + annotationCounts.comment + ' observations and comments\n\n' +
+        'Create a polished, professional research brief that:\n' +
+        '1. Opens with an executive summary synthesizing the key themes and findings\n' +
+        '2. Presents a knowledge assessment - what is well understood vs. needs more exploration\n' +
+        '3. Organizes concepts by topic with insights integrated into each section\n' +
+        '4. Highlights interesting connections and cross-topic relationships\n' +
+        '5. Documents captured ideas and innovations with context on why they emerged\n' +
+        '6. Integrates AI insights and user annotations naturally (not as separate lists)\n' +
+        '7. Identifies gaps, open questions, and areas needing further research\n' +
+        '8. Concludes with key takeaways and recommended next steps\n\n' +
+        'The document should read as a cohesive research synthesis, not a data dump. ' +
+        'Tell a story about the exploration journey and what was learned.\n\n' +
+        'Return ONLY the markdown content, no preamble or explanation.';
+    }
+
+    function downloadMarkdownFile(content, filename) {
+      var blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(function() {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 100);
+    }
+    // ============ END DOCUMENTATION EXPORT ============
+
     document.querySelectorAll('.legend-item').forEach(item => {
       item.addEventListener('click', () => {
         document.querySelectorAll('.legend-item').forEach(i => i.classList.remove('active'));
@@ -1327,6 +1426,11 @@
         saveState();
         renderSidebar();
         if (historyPanelActive) showHistoryPanel(annotationTargetConcept);
+
+        // Trigger AI response for questions if bridge is available
+        if (type === 'question' && bridgeAvailable) {
+          triggerAIQuestion(annotationTargetConcept, text);
+        }
       }
       document.getElementById('annotation-modal').classList.remove('visible');
       annotationTargetConcept = null;
