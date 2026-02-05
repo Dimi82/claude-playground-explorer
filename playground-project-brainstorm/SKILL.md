@@ -36,6 +36,13 @@ Features:
 
 ### Phase 1: Codebase Analysis
 
+**Scope Discovery** (do this first):
+- Treat user's focus area as the PRIMARY scope, not the ONLY scope
+- Before diving deep, identify foundational/supporting directories that the focus area depends on
+- Check repo root and adjacent directories for: shared types/interfaces, schemas, templates, config files, utilities
+- Use glob patterns to find related files (e.g., if exploring "tools/", also check "schemas/", "types/", "config/")
+- Map how the focus area imports from or references other directories
+
 Analyze the project to identify:
 
 1. **4-5 Major Topic Areas** - Look for:

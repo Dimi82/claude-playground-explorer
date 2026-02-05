@@ -732,9 +732,15 @@
         const from = state.concepts.find(c => c.id === edge.from);
         const to = state.concepts.find(c => c.id === edge.to);
         if (!from || !to || !isVisible(from) || !isVisible(to)) return;
+        const isConnected = state.selectedConcept && (edge.from === state.selectedConcept || edge.to === state.selectedConcept);
         ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y);
-        ctx.strokeStyle = edge.cross ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.25)';
-        ctx.lineWidth = Math.max(0.5, Math.min(3, (edge.cross ? 1 : 1.5) / zoom.scale));
+        if (isConnected) {
+          ctx.strokeStyle = edge.cross ? 'rgba(79,195,247,0.7)' : 'rgba(79,195,247,0.9)';
+          ctx.lineWidth = Math.max(1, Math.min(5, (edge.cross ? 2.5 : 3) / zoom.scale));
+        } else {
+          ctx.strokeStyle = edge.cross ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.25)';
+          ctx.lineWidth = Math.max(0.5, Math.min(3, (edge.cross ? 1 : 1.5) / zoom.scale));
+        }
         ctx.setLineDash(edge.cross ? [4, 4] : []);
         ctx.stroke();
         const angle = Math.atan2(to.y - from.y, to.x - from.x);
@@ -801,9 +807,14 @@
       return true;
     }
 
-    function renderSidebar() {
+    function getActiveTopics() {
       const topics = { ...TOPIC_NAMES };
       if (state.concepts.some(c => c.topic === 'general')) topics.general = 'General / Cross-cutting';
+      return topics;
+    }
+
+    function renderSidebar() {
+      const topics = getActiveTopics();
       while (conceptGroups.firstChild) conceptGroups.removeChild(conceptGroups.firstChild);
       Object.entries(topics).forEach(([key, name]) => {
         const concepts = state.concepts.filter(c => c.topic === key);
@@ -834,6 +845,8 @@
         });
         group.appendChild(list); conceptGroups.appendChild(group);
       });
+      // Keep filter buttons in sync with available topics
+      initPresetButtons();
     }
 
     function cycleStatus(concept) {
@@ -957,16 +970,26 @@
       const container = document.getElementById('presets-container');
       // Add click handler for existing "All Topics" button
       const allBtn = container.querySelector('[data-preset="all"]');
-      if (allBtn) {
+      if (allBtn && !allBtn.hasAttribute('data-initialized')) {
+        allBtn.setAttribute('data-initialized', 'true');
         allBtn.addEventListener('click', () => {
           document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
           allBtn.classList.add('active'); state.activePreset = 'all'; draw();
         });
       }
+      // Restore active state for "All Topics" button when activePreset is 'all'
+      if (allBtn) {
+        if (state.activePreset === 'all') allBtn.classList.add('active');
+        else allBtn.classList.remove('active');
+      }
+      // Remove existing dynamic topic buttons (keep All Topics and Export)
+      container.querySelectorAll('.preset-btn.dynamic-topic').forEach(btn => btn.remove());
       // Add topic-specific buttons
-      Object.entries(TOPIC_NAMES).forEach(([key, name]) => {
+      const topics = getActiveTopics();
+      Object.entries(topics).forEach(([key, name]) => {
         const btn = document.createElement('button');
-        btn.className = 'preset-btn'; btn.dataset.preset = key; btn.textContent = name;
+        btn.className = 'preset-btn dynamic-topic'; btn.dataset.preset = key; btn.textContent = name;
+        if (state.activePreset === key) btn.classList.add('active');
         btn.addEventListener('click', () => {
           document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
           btn.classList.add('active'); state.activePreset = key; draw();
