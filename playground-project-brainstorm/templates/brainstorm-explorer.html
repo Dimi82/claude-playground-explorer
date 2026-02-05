@@ -35,8 +35,9 @@
     .status-fuzzy { background: var(--fuzzy); }
     .status-unknown { background: var(--unknown); }
     .status-explore { background: var(--explore); }
-    .canvas-container { background: var(--bg); position: relative; overflow: hidden; cursor: default; }
+    .canvas-container { background: var(--bg); position: relative; overflow: hidden; cursor: grab; }
     .canvas-container.edge-mode { cursor: crosshair; }
+    .canvas-container.panning { cursor: grabbing; }
     #canvas { width: 100%; height: 100%; }
     .tooltip { position: absolute; background: var(--surface); border: 1px solid var(--border); padding: 10px 14px; border-radius: 6px; font-size: 12px; max-width: 280px; pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
     .tooltip.visible { opacity: 1; }
@@ -473,7 +474,7 @@
     const STATUS_COLORS = { know: '#4caf50', fuzzy: '#ff9800', unknown: '#f44336', explore: '#9c27b0' };
     const STORAGE_KEY = 'brainstorm-explorer-' + PROJECT_NAME.toLowerCase().replace(/\s+/g, '-');
 
-    const state = { concepts: INITIAL_CONCEPTS, edges: INITIAL_EDGES, ideas: [], annotations: {}, filter: 'all', activePreset: 'all', selectedConcept: null, dragging: null, dragOffset: { x: 0, y: 0 }, edgeMode: false, edgeSource: null, deleteEdgeMode: false, pendingAIRequests: {}, contextTarget: null };
+    const state = { concepts: INITIAL_CONCEPTS, edges: INITIAL_EDGES, ideas: [], annotations: {}, filter: 'all', activePreset: 'all', selectedConcept: null, dragging: null, dragOffset: { x: 0, y: 0 }, edgeMode: false, edgeSource: null, deleteEdgeMode: false, pendingAIRequests: {}, contextTarget: null, isPanning: false, panStart: { x: 0, y: 0, offsetX: 0, offsetY: 0 } };
 
     // ============ ZOOM MANAGEMENT ============
     const zoom = {
@@ -942,12 +943,26 @@
         }
         renderSidebar();
         draw();
+      } else {
+        // Start canvas panning when clicking on empty space
+        state.isPanning = true;
+        state.panStart = { x: screenX, y: screenY, offsetX: zoom.offsetX, offsetY: zoom.offsetY };
+        canvasContainer.classList.add('panning');
       }
     });
 
     canvas.addEventListener('mousemove', e => {
       const rect = canvas.getBoundingClientRect();
       const screenX = e.clientX - rect.left, screenY = e.clientY - rect.top;
+      if (state.isPanning) {
+        // Pan the canvas by updating zoom offsets
+        const deltaX = (screenX - state.panStart.x) / zoom.scale;
+        const deltaY = (screenY - state.panStart.y) / zoom.scale;
+        zoom.offsetX = state.panStart.offsetX + deltaX;
+        zoom.offsetY = state.panStart.offsetY + deltaY;
+        draw();
+        return;
+      }
       const world = zoom.screenToWorld(screenX, screenY);
       if (state.dragging) { state.dragging.x = world.x - state.dragOffset.x; state.dragging.y = world.y - state.dragOffset.y; draw(); }
       else {
@@ -961,7 +976,15 @@
       }
     });
 
-    canvas.addEventListener('mouseup', () => { if (state.dragging) saveState(); state.dragging = null; });
+    canvas.addEventListener('mouseup', () => {
+      if (state.dragging) saveState();
+      state.dragging = null;
+      if (state.isPanning) {
+        state.isPanning = false;
+        canvasContainer.classList.remove('panning');
+        zoom.save();
+      }
+    });
     canvas.addEventListener('dblclick', e => {
       const rect = canvas.getBoundingClientRect();
       const world = zoom.screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
