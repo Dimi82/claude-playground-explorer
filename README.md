@@ -1,12 +1,12 @@
 # Claude Playground Explorer
 
-Interactive HTML playgrounds for exploring project architecture and brainstorming, with optional real-time AI integration via MCP.
+Interactive HTML playgrounds for exploring project architecture and brainstorming, with real-time AI integration via MCP.
 
 ## Contents
 
 - **Skills** - Reusable workflows that Claude can invoke
 - **Agents** - Custom agent definitions with specialized prompts
-- **MCP Server** - Optional server for real-time browser-to-Claude communication
+- **MCP Server** - Server for real-time browser-to-Claude communication
 
 ## Skills Included
 
@@ -23,8 +23,7 @@ Features:
 - Topic filtering and presets
 - Knowledge status cycling (Know/Fuzzy/Unknown/Explore)
 - Idea capture with add/delete
-- **AI Integration** - Right-click concepts to ask AI questions
-- Auto-generated prompts targeting the brainstorm-refiner agent
+- **AI Integration** - Right-click concepts to ask AI questions in real-time
 - **localStorage persistence** - all changes auto-save and restore
 - **Export to Markdown** - Export your entire brainstorm session to a structured `.md` file
 
@@ -40,8 +39,7 @@ Features:
 - Four diagram views: Workflow, Data Flow, Sequence, File Structure
 - Enhanced workflow diagrams with decision nodes, branches, and loops
 - Component annotations (questions, comments, edit suggestions)
-- **AI Integration** - Right-click elements for AI explanations and analysis
-- Auto-generated prompts with architectural context
+- **AI Integration** - Right-click elements for AI explanations and analysis in real-time
 - **localStorage persistence** - all annotations auto-save
 - Export annotations to clipboard
 - Right-click context menu for quick annotation
@@ -212,15 +210,6 @@ With the MCP server configured, playgrounds can communicate with Claude in real-
 8. The response appears in the playground's panel
 
 **Tip:** Keep the Claude session focused on the project you're exploring. Claude will have full context of the codebase when answering questions from the playground.
-
-### Playground → Agent Workflow (Offline Mode)
-
-Even without the MCP server, playgrounds work as prompt generators:
-
-1. Run `/playground-project-brainstorm`
-2. In the playground, mark concepts as "Explore" or "Unknown"
-3. Click "Copy Prompt"
-4. Paste the prompt back to Claude - it will use the brainstorm-refiner agent
 
 ### Export to Markdown
 
