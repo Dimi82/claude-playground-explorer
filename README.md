@@ -12,7 +12,11 @@ Interactive HTML playgrounds for exploring project architecture and brainstormin
 
 ### playground-project-brainstorm
 
-Creates an interactive HTML brainstorm explorer playground customized for any project's architecture. Features:
+Creates an interactive HTML brainstorm explorer playground customized for any project's architecture.
+
+![Brainstorm Explorer](assets/brainstorm-explorer.png)
+
+Features:
 
 - Interactive concept map canvas with draggable nodes
 - User-drawable edges between concepts
@@ -22,10 +26,15 @@ Creates an interactive HTML brainstorm explorer playground customized for any pr
 - **AI Integration** - Right-click concepts to ask AI questions
 - Auto-generated prompts targeting the brainstorm-refiner agent
 - **localStorage persistence** - all changes auto-save and restore
+- **Export to Markdown** - Export your entire brainstorm session to a structured `.md` file
 
 ### playground-project-architecture
 
-Creates an interactive HTML architecture explorer playground for any project. Features:
+Creates an interactive HTML architecture explorer playground for any project.
+
+![Architecture Explorer](assets/architecture-explorer.png)
+
+Features:
 
 - Three-panel layout (component tree, diagrams, details)
 - Four diagram views: Workflow, Data Flow, Sequence, File Structure
@@ -36,6 +45,7 @@ Creates an interactive HTML architecture explorer playground for any project. Fe
 - **localStorage persistence** - all annotations auto-save
 - Export annotations to clipboard
 - Right-click context menu for quick annotation
+- **Export to Markdown** - Export annotations and architecture notes to a structured `.md` file
 
 ## Custom Agents Included
 
@@ -186,12 +196,22 @@ claude
 With the MCP server configured, playgrounds can communicate with Claude in real-time:
 
 1. Open a generated playground HTML in your browser
-2. Start Claude Code and tell it: "Listen to the playground"
-3. Claude will call `playground_watch` and wait for browser interactions
-4. Right-click on any concept or component in the browser
-5. Select an AI action (Explain, Expand, Challenge, etc.)
-6. Claude receives the request, processes it, and sends back a response
-7. The response appears in the playground's panel
+2. **Start Claude Code in the project** where you want to brainstorm or explore architecture
+3. **Tell Claude to start listening:**
+   ```
+   listen to playground-sync mcp
+   ```
+   or simply:
+   ```
+   watch the playground
+   ```
+4. Claude will call `playground_watch` and wait for browser interactions
+5. Right-click on any concept or component in the browser
+6. Select an AI action (Explain, Expand, Challenge, etc.)
+7. Claude receives the request, processes it, and sends back a response
+8. The response appears in the playground's panel
+
+**Tip:** Keep the Claude session focused on the project you're exploring. Claude will have full context of the codebase when answering questions from the playground.
 
 ### Playground → Agent Workflow (Offline Mode)
 
@@ -201,6 +221,31 @@ Even without the MCP server, playgrounds work as prompt generators:
 2. In the playground, mark concepts as "Explore" or "Unknown"
 3. Click "Copy Prompt"
 4. Paste the prompt back to Claude - it will use the brainstorm-refiner agent
+
+### Export to Markdown
+
+Both playgrounds support exporting your session to structured Markdown files:
+
+**Brainstorm Explorer:**
+- Click the "Export MD" button in the toolbar
+- Downloads a `.md` file containing:
+  - All concepts organized by topic and knowledge status
+  - User-added ideas with their connections
+  - Edge relationships between concepts
+  - Session metadata and timestamps
+
+**Architecture Explorer:**
+- Click "Export to MD" in the annotations panel
+- Downloads a `.md` file containing:
+  - Component annotations (questions, comments, suggestions)
+  - Architecture notes organized by component
+  - AI responses captured during the session
+
+**Use cases:**
+- Save brainstorm sessions for later reference
+- Share architecture analysis with team members
+- Import notes into documentation or project planning tools
+- Create a paper trail of architectural decisions
 
 ## File Structure
 
