@@ -183,10 +183,22 @@ claude
 
 # Create an architecture explorer for current project
 /playground-project-architecture
+```
 
-# Or use natural language
-"Create a brainstorm explorer for this codebase"
-"Generate an architecture diagram playground"
+**Sample Prompts:**
+
+```
+/playground-project-architecture focus on the tools directory of this repo.
+Identify all important workflows, components, create structured diagrams
+that can be used to onboard a new team or team member into the project.
+Details are important, do not simplify.
+```
+
+```
+/playground-project-brainstorm create a brainstorming session based on
+the tools directory of this repo. Explore all available domains and
+technologies, structure them and provide relations and connections
+by visualizing it.
 ```
 
 ### Interactive AI Mode

@@ -16,7 +16,13 @@ Creates a self-contained HTML playground that visualizes the current project's a
 
 ## Output
 
-A single HTML file (`architecture-explorer.html`) in `docs/playground/` with:
+Files in `docs/playground/` directory:
+- `{context-name}-architecture-{timestamp}.html` - The interactive playground
+- `{context-name}-architecture-{timestamp}-config.js` - The configuration data
+
+Where `{context-name}` is a short descriptive name based on the focus area (e.g., "tools", "api", "auth") and `{timestamp}` is in format `YYYYMMDD-HHMM`.
+
+Features:
 - Three-panel layout (component tree, diagram canvas, details panel)
 - Four diagram views: Workflow, Data Flow, File Structure, Sequence
 - Component annotations (questions, comments, edit suggestions)
@@ -162,9 +168,26 @@ const CONFIG = {
 
 ### Phase 3: Generate Output
 
-1. Write the CONFIG object directly as a JS file:
+**File Naming Convention:**
+
+Generate filenames based on context and timestamp:
+- Context name: derive from the focus area (e.g., "tools", "api-layer", "auth-system")
+- Timestamp: use format `YYYYMMDD-HHMM` (e.g., `20260205-1430`)
+
+Example filenames:
+- `tools-architecture-20260205-1430.html`
+- `tools-architecture-20260205-1430-config.js`
+
+**Generation Steps:**
+
+1. Create the docs/playground directory if needed:
+   ```bash
+   mkdir -p docs/playground
    ```
-   docs/playground/config-{projectname}.js
+
+2. Write the CONFIG object directly as a JS file (do NOT create a JSON file):
+   ```
+   docs/playground/{context-name}-architecture-{timestamp}-config.js
    ```
 
    The file should contain:
@@ -174,19 +197,19 @@ const CONFIG = {
    };
    ```
 
-2. Copy the template and add the config script tag:
+3. Copy the template:
    ```bash
-   cp ~/.claude/skills/playground-project-architecture/templates/architecture-explorer.html docs/playground/
+   cp ~/.claude/skills/playground-project-architecture/templates/architecture-explorer.html docs/playground/{context-name}-architecture-{timestamp}.html
    ```
 
-   Then edit `docs/playground/architecture-explorer.html` - add this line before the main `<script>` tag:
+4. Edit the HTML file to add the config script tag before the main `<script>` tag:
    ```html
-   <script src="config-{projectname}.js"></script>
+   <script src="{context-name}-architecture-{timestamp}-config.js"></script>
    ```
 
-3. Open in browser:
+5. Open in browser:
    ```bash
-   open docs/playground/architecture-explorer.html
+   open docs/playground/{context-name}-architecture-{timestamp}.html
    ```
 
 ## Component Badge Types

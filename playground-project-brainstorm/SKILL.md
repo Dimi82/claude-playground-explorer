@@ -17,7 +17,13 @@ Creates a self-contained HTML playground that visualizes the current project's a
 
 ## Output
 
-A single HTML file (`brainstorm-explorer.html`) in the project root with:
+Files in `docs/playground/` directory:
+- `{context-name}-brainstorm-{timestamp}.html` - The interactive playground
+- `{context-name}-brainstorm-{timestamp}-config.js` - The configuration data
+
+Where `{context-name}` is a short descriptive name based on the focus area (e.g., "tools", "api", "auth") and `{timestamp}` is in format `YYYYMMDD-HHMM`.
+
+Features:
 - Interactive concept map canvas with draggable nodes
 - User-drawable edges between concepts
 - Topic filtering and presets
@@ -94,57 +100,48 @@ const CONFIG = {
 
 ### Phase 3: Generate HTML
 
-**Option A: External Config (Recommended - saves ~90% tokens)**
+**File Naming Convention:**
 
-This approach separates config from template, reducing token usage significantly.
+Generate filenames based on context and timestamp:
+- Context name: derive from the focus area (e.g., "tools", "api-layer", "auth-system")
+- Timestamp: use format `YYYYMMDD-HHMM` (e.g., `20260205-1430`)
 
-1. Write the CONFIG object as a JSON file:
+Example filenames:
+- `tools-brainstorm-20260205-1430.html`
+- `tools-brainstorm-20260205-1430-config.js`
+
+**Generation Steps:**
+
+1. Create the docs/playground directory if needed:
    ```bash
-   # Write to docs/playground/config-{projectname}.json
+   mkdir -p docs/playground
    ```
 
-2. Convert JSON to JavaScript config file:
-   ```bash
-   node -e "const fs=require('fs'); const c=JSON.parse(fs.readFileSync('docs/playground/config-{projectname}.json')); fs.writeFileSync('docs/playground/config-{projectname}.js', 'window.EXTERNAL_CONFIG = ' + JSON.stringify(c, null, 2) + ';');"
+2. Write the CONFIG object directly as a JS file (do NOT create a JSON file):
+   ```
+   docs/playground/{context-name}-brainstorm-{timestamp}-config.js
    ```
 
-3. Copy the template (no modifications needed):
-   ```bash
-   cp ~/.claude/skills/playground-project-brainstorm/templates/brainstorm-explorer.html docs/playground/
+   The file should contain:
+   ```javascript
+   window.EXTERNAL_CONFIG = {
+     // ... your CONFIG object here
+   };
    ```
 
-4. Add script tag to load config before main script. Edit `docs/playground/brainstorm-explorer.html`:
+3. Copy the template:
+   ```bash
+   cp ~/.claude/skills/playground-project-brainstorm/templates/brainstorm-explorer.html docs/playground/{context-name}-brainstorm-{timestamp}.html
+   ```
+
+4. Edit the HTML file to add the config script tag before the main `<script>` tag:
    ```html
-   <!-- Add this line before the main <script> tag -->
-   <script src="config-{projectname}.js"></script>
+   <script src="{context-name}-brainstorm-{timestamp}-config.js"></script>
    ```
 
 5. Open in browser:
    ```bash
-   open docs/playground/brainstorm-explorer.html
-   ```
-
-**Option B: Inline Config (Legacy)**
-
-For backwards compatibility or single-file distribution:
-
-1. Read the template file:
-   ```
-   playground-project-brainstorm/templates/brainstorm-explorer.html
-   ```
-
-2. Replace placeholders:
-   - `{{PROJECT_NAME}}` with project name
-   - Modify the config loader to use inline config by replacing the `loadConfig()` function body with:
-     ```javascript
-     return {{CONFIG_JSON}};
-     ```
-
-3. Write to `brainstorm-explorer.html` in project root
-
-4. Open in browser:
-   ```bash
-   open brainstorm-explorer.html
+   open docs/playground/{context-name}-brainstorm-{timestamp}.html
    ```
 
 ## Example Topic Patterns
