@@ -2084,6 +2084,191 @@
     });
 
     // ============ DOCUMENTATION EXPORT ============
+
+    // Helper: Extract key excerpt from AI response text
+    function extractAIExcerpt(text, maxLength) {
+      maxLength = maxLength || 300;
+      if (!text || text.length <= maxLength) return text || '';
+      // Try to cut at sentence boundary
+      var excerpt = text.substring(0, maxLength);
+      var lastPeriod = excerpt.lastIndexOf('.');
+      var lastNewline = excerpt.lastIndexOf('\n');
+      var cutPoint = Math.max(lastPeriod, lastNewline);
+      if (cutPoint > maxLength * 0.6) {
+        return excerpt.substring(0, cutPoint + 1) + '...';
+      }
+      return excerpt + '...';
+    }
+
+    // Helper: Format annotation with inline label
+    function formatAnnotationLabel(annotation) {
+      var type = annotation.type;
+      var action = annotation.action || '';
+      if (type === 'ai') {
+        if (action === 'question' || annotation.question) return '[AI-answer]';
+        return '[AI-' + (action || 'insight') + ']';
+      }
+      if (type === 'question') return '[User-question]';
+      if (type === 'comment') return '[User-comment]';
+      if (type === 'edit') return '[User-edit]';
+      return '[' + type + ']';
+    }
+
+    // Helper: Organize annotations by component with metadata
+    function organizeAnnotationsByComponent() {
+      var organized = {};
+      var annotations = state.annotations || {};
+      var componentData = state.componentData || {};
+
+      Object.keys(annotations).forEach(function(componentId) {
+        var anns = annotations[componentId];
+        if (!anns || !Array.isArray(anns) || anns.length === 0) return;
+
+        var component = componentData[componentId] || { title: componentId };
+        organized[componentId] = {
+          name: component.title || componentId,
+          file: component.file || '',
+          badge: component.badge || '',
+          userAnnotations: [],
+          aiInsights: []
+        };
+
+        anns.forEach(function(ann) {
+          var formatted = {
+            label: formatAnnotationLabel(ann),
+            text: ann.type === 'ai' ? extractAIExcerpt(ann.text) : (ann.text || ''),
+            fullText: ann.text || '',
+            timestamp: ann.timestamp,
+            action: ann.action,
+            question: ann.question
+          };
+
+          if (ann.type === 'ai') {
+            organized[componentId].aiInsights.push(formatted);
+          } else {
+            organized[componentId].userAnnotations.push(formatted);
+          }
+        });
+      });
+
+      return organized;
+    }
+
+    // Helper: Group components by architectural domain (using treeStructure)
+    function groupByDomain() {
+      var domains = {};
+      var treeStructure = state.treeStructure || [];
+
+      treeStructure.forEach(function(section) {
+        var header = section.header || 'Other';
+        if (!domains[header]) {
+          domains[header] = { name: header, components: [] };
+        }
+        (section.items || []).forEach(function(item) {
+          domains[header].components.push(item.id);
+        });
+      });
+
+      return domains;
+    }
+
+    // Helper: Build organized export data string for prompt
+    function buildOrganizedAnnotationsText() {
+      var organized = organizeAnnotationsByComponent();
+      var domains = groupByDomain();
+      var lines = [];
+
+      // Group organized annotations by domain
+      Object.keys(domains).forEach(function(domainName) {
+        var domain = domains[domainName];
+        var domainHasContent = false;
+        var domainLines = [];
+
+        domainLines.push('\n### ' + domainName);
+
+        domain.components.forEach(function(componentId) {
+          var compData = organized[componentId];
+          if (!compData) return;
+          if (compData.userAnnotations.length === 0 && compData.aiInsights.length === 0) return;
+
+          domainHasContent = true;
+          domainLines.push('\n**' + compData.name + '**' + (compData.file ? ' (`' + compData.file + '`)' : ''));
+
+          // User annotations first
+          compData.userAnnotations.forEach(function(ann) {
+            domainLines.push(ann.label + ' ' + ann.text);
+          });
+
+          // AI insights with excerpts
+          compData.aiInsights.forEach(function(ann) {
+            var prefix = ann.question ? 'Q: "' + ann.question.substring(0, 50) + (ann.question.length > 50 ? '...' : '') + '" ' : '';
+            domainLines.push(ann.label + ' ' + prefix + ann.text);
+          });
+        });
+
+        if (domainHasContent) {
+          lines = lines.concat(domainLines);
+        }
+      });
+
+      // Handle components not in any domain
+      var domainComponentIds = [];
+      Object.values(domains).forEach(function(d) { domainComponentIds = domainComponentIds.concat(d.components); });
+
+      var otherComponents = Object.keys(organized).filter(function(id) {
+        return domainComponentIds.indexOf(id) === -1;
+      });
+
+      if (otherComponents.length > 0) {
+        var hasOtherContent = false;
+        var otherLines = ['\n### Other Components'];
+
+        otherComponents.forEach(function(componentId) {
+          var compData = organized[componentId];
+          if (!compData || (compData.userAnnotations.length === 0 && compData.aiInsights.length === 0)) return;
+
+          hasOtherContent = true;
+          otherLines.push('\n**' + compData.name + '**' + (compData.file ? ' (`' + compData.file + '`)' : ''));
+
+          compData.userAnnotations.forEach(function(ann) {
+            otherLines.push(ann.label + ' ' + ann.text);
+          });
+          compData.aiInsights.forEach(function(ann) {
+            var prefix = ann.question ? 'Q: "' + ann.question.substring(0, 50) + '..." ' : '';
+            otherLines.push(ann.label + ' ' + prefix + ann.text);
+          });
+        });
+
+        if (hasOtherContent) {
+          lines = lines.concat(otherLines);
+        }
+      }
+
+      return lines.join('\n');
+    }
+
+    // Helper: Calculate annotation statistics
+    function calculateAnnotationStats() {
+      var stats = {
+        total: 0,
+        byType: { question: 0, comment: 0, edit: 0, ai: 0 },
+        componentsWithAnnotations: 0
+      };
+
+      Object.values(state.annotations || {}).forEach(function(anns) {
+        if (!anns || !Array.isArray(anns)) return;
+        if (anns.length > 0) stats.componentsWithAnnotations++;
+        anns.forEach(function(a) {
+          if (a && a.type) {
+            stats.byType[a.type] = (stats.byType[a.type] || 0) + 1;
+            stats.total++;
+          }
+        });
+      });
+
+      return stats;
+    }
+
     function exportArchitectureDocumentation() {
       if (!bridgeAvailable) {
         alert('AI not connected. Please ensure the AI bridge is running to generate documentation.');
@@ -2096,7 +2281,7 @@
       exportBtn.textContent = 'Generating...';
       exportBtn.disabled = true;
 
-      // Build comprehensive context for AI
+      // Build comprehensive context for AI with organized data
       var context = {
         projectName: PROJECT_NAME,
         componentData: state.componentData,
@@ -2105,6 +2290,9 @@
         dataFlowLayers: state.dataFlowLayers,
         sequenceFlows: state.sequenceFlows,
         annotations: state.annotations,
+        // Pre-organized data for better export
+        organizedAnnotations: organizeAnnotationsByComponent(),
+        annotationStats: calculateAnnotationStats(),
         prompt: buildExportPrompt()
       };
 
@@ -2125,35 +2313,47 @@
 
     function buildExportPrompt() {
       var componentCount = Object.keys(state.componentData || {}).length;
-      var annotationCounts = { question: 0, comment: 0, edit: 0, ai: 0 };
-      Object.values(state.annotations || {}).forEach(function(anns) {
-        if (!anns || !Array.isArray(anns)) return;
-        anns.forEach(function(a) {
-          if (a && a.type) annotationCounts[a.type] = (annotationCounts[a.type] || 0) + 1;
-        });
-      });
+      var stats = calculateAnnotationStats();
+      var organizedText = buildOrganizedAnnotationsText();
 
-      return 'Generate a comprehensive technical architecture specification document in Markdown format for "' + PROJECT_NAME + '".\n\n' +
-        'You have access to the complete graph data including:\n' +
-        '- ' + componentCount + ' architectural components with descriptions, responsibilities, and code snippets\n' +
-        '- Workflow structure showing processing phases and node connections\n' +
-        '- Data flow layers showing system architecture\n' +
-        '- Sequence flows showing interaction patterns\n' +
-        '- ' + annotationCounts.ai + ' AI analysis insights gathered during exploration\n' +
-        '- ' + annotationCounts.question + ' questions raised about the architecture\n' +
-        '- ' + annotationCounts.comment + ' observations and comments\n' +
-        '- ' + annotationCounts.edit + ' items marked for changes\n\n' +
-        'Create a polished, professional technical specification document that:\n' +
-        '1. Opens with an executive summary synthesizing key insights\n' +
-        '2. Describes the system architecture with clear component relationships\n' +
-        '3. Includes ASCII diagrams for workflow and data flow visualization\n' +
-        '4. Documents each component with its purpose, responsibilities, and any analysis/insights gathered\n' +
-        '5. Integrates AI insights and user annotations naturally into the narrative (not as separate sections)\n' +
-        '6. Highlights open questions and suggested improvements\n' +
-        '7. Concludes with recommendations and next steps\n\n' +
-        'The document should read as a cohesive technical specification, not a data dump. ' +
-        'Synthesize and summarize the insights rather than just listing them.\n\n' +
-        'Return ONLY the markdown content, no preamble or explanation.';
+      var prompt = 'Generate a comprehensive technical architecture specification document in Markdown format for "' + PROJECT_NAME + '".\n\n';
+
+      prompt += '## Available Data\n';
+      prompt += '- ' + componentCount + ' architectural components with descriptions, responsibilities, and code snippets\n';
+      prompt += '- Workflow structure showing processing phases and node connections\n';
+      prompt += '- Data flow layers showing system architecture\n';
+      prompt += '- Sequence flows showing interaction patterns\n';
+      prompt += '- ' + stats.componentsWithAnnotations + ' components with annotations/insights\n';
+      prompt += '- ' + stats.byType.ai + ' AI analysis summaries\n';
+      prompt += '- ' + stats.byType.question + ' user questions\n';
+      prompt += '- ' + stats.byType.comment + ' user observations\n';
+      prompt += '- ' + stats.byType.edit + ' change requests\n\n';
+
+      // Add organized annotations section if there are any
+      if (stats.total > 0) {
+        prompt += '## Gathered Insights by Domain\n';
+        prompt += 'Below are all annotations organized by architectural domain. Labels indicate source:\n';
+        prompt += '- [User-question], [User-comment], [User-edit]: User-contributed annotations\n';
+        prompt += '- [AI-answer], [AI-explain], [AI-expand], [AI-challenge]: AI-generated insights\n\n';
+        prompt += organizedText + '\n\n';
+      }
+
+      prompt += '## Output Requirements\n';
+      prompt += 'Create a polished, professional technical specification document that:\n';
+      prompt += '1. Opens with an executive summary synthesizing key architectural insights\n';
+      prompt += '2. Describes the system architecture with clear component relationships\n';
+      prompt += '3. Includes ASCII diagrams for workflow and data flow visualization\n';
+      prompt += '4. For each domain/component that has insights, integrate them using inline labels:\n';
+      prompt += '   - Preserve the [AI-...] and [User-...] labels to show information source\n';
+      prompt += '   - Summarize AI insights (2-3 sentences max per insight)\n';
+      prompt += '   - Include user questions and comments as-is\n';
+      prompt += '5. Organize content by architectural domain (as shown in the insights section)\n';
+      prompt += '6. Highlight open questions and suggested improvements\n';
+      prompt += '7. Conclude with recommendations and next steps\n\n';
+      prompt += 'The document should read as a cohesive technical specification with integrated insights, not a data dump.\n\n';
+      prompt += 'Return ONLY the markdown content, no preamble or explanation.';
+
+      return prompt;
     }
 
     function downloadMarkdownFile(content, filename) {

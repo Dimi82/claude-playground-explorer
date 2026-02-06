@@ -1068,6 +1068,224 @@
     });
 
     // ============ DOCUMENTATION EXPORT ============
+
+    // Helper: Extract key excerpt from AI response text
+    function extractAIExcerpt(text, maxLength) {
+      maxLength = maxLength || 300;
+      if (!text || text.length <= maxLength) return text || '';
+      // Try to cut at sentence boundary
+      var excerpt = text.substring(0, maxLength);
+      var lastPeriod = excerpt.lastIndexOf('.');
+      var lastNewline = excerpt.lastIndexOf('\n');
+      var cutPoint = Math.max(lastPeriod, lastNewline);
+      if (cutPoint > maxLength * 0.6) {
+        return excerpt.substring(0, cutPoint + 1) + '...';
+      }
+      return excerpt + '...';
+    }
+
+    // Helper: Format annotation with inline label
+    function formatAnnotationLabel(annotation) {
+      var type = annotation.type;
+      var action = annotation.action || '';
+      if (type === 'ai') {
+        if (action === 'question' || annotation.question) return '[AI-answer]';
+        return '[AI-' + (action || 'insight') + ']';
+      }
+      if (type === 'question') return '[User-question]';
+      if (type === 'comment') return '[User-comment]';
+      if (type === 'edit') return '[User-edit]';
+      return '[' + type + ']';
+    }
+
+    // Helper: Organize annotations by concept with metadata
+    function organizeAnnotationsByConcept() {
+      var organized = {};
+      var annotations = state.annotations || {};
+      var concepts = state.concepts || [];
+
+      // Create lookup map for concepts
+      var conceptMap = {};
+      concepts.forEach(function(c) {
+        conceptMap[c.id] = c;
+      });
+
+      Object.keys(annotations).forEach(function(conceptId) {
+        var anns = annotations[conceptId];
+        if (!anns || !Array.isArray(anns) || anns.length === 0) return;
+
+        var concept = conceptMap[conceptId] || { name: conceptId, topic: 'general', status: 'unknown' };
+        organized[conceptId] = {
+          name: concept.name || conceptId,
+          description: concept.desc || '',
+          topic: concept.topic || 'general',
+          status: concept.status || 'unknown',
+          isIdea: concept.isIdea || false,
+          userAnnotations: [],
+          aiInsights: []
+        };
+
+        anns.forEach(function(ann) {
+          var formatted = {
+            label: formatAnnotationLabel(ann),
+            text: ann.type === 'ai' ? extractAIExcerpt(ann.text) : (ann.text || ''),
+            fullText: ann.text || '',
+            timestamp: ann.timestamp,
+            action: ann.action,
+            question: ann.question
+          };
+
+          if (ann.type === 'ai') {
+            organized[conceptId].aiInsights.push(formatted);
+          } else {
+            organized[conceptId].userAnnotations.push(formatted);
+          }
+        });
+      });
+
+      return organized;
+    }
+
+    // Helper: Group concepts by topic
+    function groupByTopic() {
+      var topics = {};
+      var concepts = state.concepts || [];
+      var topicNames = TOPIC_NAMES || {};
+
+      concepts.forEach(function(concept) {
+        var topicKey = concept.topic || 'general';
+        var topicName = topicNames[topicKey] || topicKey;
+
+        if (!topics[topicKey]) {
+          topics[topicKey] = { name: topicName, concepts: [] };
+        }
+        topics[topicKey].concepts.push(concept.id);
+      });
+
+      return topics;
+    }
+
+    // Helper: Analyze connections between concepts
+    function analyzeConnections() {
+      var edges = state.edges || [];
+      var concepts = state.concepts || [];
+      var topicNames = TOPIC_NAMES || {};
+
+      // Create concept lookup
+      var conceptMap = {};
+      concepts.forEach(function(c) { conceptMap[c.id] = c; });
+
+      var crossTopicLinks = [];
+      var connectionCounts = {};
+
+      edges.forEach(function(edge) {
+        var fromConcept = conceptMap[edge.from];
+        var toConcept = conceptMap[edge.to];
+
+        // Count connections per concept
+        connectionCounts[edge.from] = (connectionCounts[edge.from] || 0) + 1;
+        connectionCounts[edge.to] = (connectionCounts[edge.to] || 0) + 1;
+
+        // Track cross-topic links
+        if (fromConcept && toConcept && fromConcept.topic !== toConcept.topic) {
+          crossTopicLinks.push({
+            from: fromConcept.name,
+            fromTopic: topicNames[fromConcept.topic] || fromConcept.topic,
+            to: toConcept.name,
+            toTopic: topicNames[toConcept.topic] || toConcept.topic
+          });
+        }
+      });
+
+      // Find hub concepts (most connections)
+      var hubs = Object.keys(connectionCounts)
+        .map(function(id) {
+          var concept = conceptMap[id];
+          return { id: id, name: concept ? concept.name : id, count: connectionCounts[id] };
+        })
+        .sort(function(a, b) { return b.count - a.count; })
+        .slice(0, 5);
+
+      return { crossTopicLinks: crossTopicLinks, hubs: hubs, total: edges.length };
+    }
+
+    // Helper: Build organized export data string for prompt
+    function buildOrganizedAnnotationsText() {
+      var organized = organizeAnnotationsByConcept();
+      var topics = groupByTopic();
+      var lines = [];
+
+      // Group organized annotations by topic
+      Object.keys(topics).forEach(function(topicKey) {
+        var topic = topics[topicKey];
+        var topicHasContent = false;
+        var topicLines = [];
+
+        topicLines.push('\n### ' + topic.name);
+
+        topic.concepts.forEach(function(conceptId) {
+          var conceptData = organized[conceptId];
+          if (!conceptData) return;
+          if (conceptData.userAnnotations.length === 0 && conceptData.aiInsights.length === 0) return;
+
+          topicHasContent = true;
+          var statusBadge = '[' + String(conceptData.status || 'unknown').toUpperCase() + ']';
+          topicLines.push('\n**' + conceptData.name + '** ' + statusBadge + (conceptData.isIdea ? ' (Idea)' : ''));
+          if (conceptData.description) {
+            topicLines.push('_' + conceptData.description + '_');
+          }
+
+          // User annotations first
+          conceptData.userAnnotations.forEach(function(ann) {
+            topicLines.push(ann.label + ' ' + ann.text);
+          });
+
+          // AI insights with excerpts
+          conceptData.aiInsights.forEach(function(ann) {
+            var prefix = ann.question ? 'Q: "' + ann.question.substring(0, 50) + (ann.question.length > 50 ? '...' : '') + '" ' : '';
+            topicLines.push(ann.label + ' ' + prefix + ann.text);
+          });
+        });
+
+        if (topicHasContent) {
+          lines = lines.concat(topicLines);
+        }
+      });
+
+      return lines.join('\n');
+    }
+
+    // Helper: Calculate annotation and concept statistics
+    function calculateBrainstormStats() {
+      var stats = {
+        totalAnnotations: 0,
+        byType: { question: 0, comment: 0, edit: 0, ai: 0 },
+        conceptsWithAnnotations: 0,
+        statusCounts: { know: 0, fuzzy: 0, unknown: 0, explore: 0 }
+      };
+
+      // Count annotations
+      Object.values(state.annotations || {}).forEach(function(anns) {
+        if (!anns || !Array.isArray(anns)) return;
+        if (anns.length > 0) stats.conceptsWithAnnotations++;
+        anns.forEach(function(a) {
+          if (a && a.type) {
+            stats.byType[a.type] = (stats.byType[a.type] || 0) + 1;
+            stats.totalAnnotations++;
+          }
+        });
+      });
+
+      // Count status distribution
+      (state.concepts || []).forEach(function(c) {
+        if (c && c.status) {
+          stats.statusCounts[c.status] = (stats.statusCounts[c.status] || 0) + 1;
+        }
+      });
+
+      return stats;
+    }
+
     function exportBrainstormFindings() {
       if (!bridgeAvailable) {
         alert('AI not connected. Please ensure the AI bridge is running to generate documentation.');
@@ -1080,7 +1298,7 @@
       exportBtn.textContent = 'Generating...';
       exportBtn.disabled = true;
 
-      // Build comprehensive context for AI
+      // Build comprehensive context for AI with organized data
       var context = {
         projectName: PROJECT_NAME,
         topicNames: TOPIC_NAMES,
@@ -1089,6 +1307,10 @@
         edges: state.edges,
         ideas: state.ideas,
         annotations: state.annotations,
+        // Pre-organized data for better export
+        organizedAnnotations: organizeAnnotationsByConcept(),
+        connectionAnalysis: analyzeConnections(),
+        stats: calculateBrainstormStats(),
         prompt: buildBrainstormExportPrompt()
       };
 
@@ -1108,41 +1330,72 @@
     }
 
     function buildBrainstormExportPrompt() {
-      var statusCounts = { know: 0, fuzzy: 0, unknown: 0, explore: 0 };
-      (state.concepts || []).forEach(function(c) { if (c && c.status) statusCounts[c.status]++; });
-
+      var stats = calculateBrainstormStats();
+      var connections = analyzeConnections();
+      var organizedText = buildOrganizedAnnotationsText();
       var totalConcepts = (state.concepts || []).length;
       var totalIdeas = (state.ideas || []).length;
-      var totalConnections = (state.edges || []).length;
-      var annotationCounts = { question: 0, comment: 0, edit: 0, ai: 0 };
-      Object.values(state.annotations || {}).forEach(function(anns) {
-        if (!anns || !Array.isArray(anns)) return;
-        anns.forEach(function(a) {
-          if (a && a.type) annotationCounts[a.type] = (annotationCounts[a.type] || 0) + 1;
-        });
-      });
+      var topicCount = Object.keys(TOPIC_NAMES || {}).length;
 
-      return 'Generate a comprehensive research brief document in Markdown format for the brainstorming session "' + PROJECT_NAME + '".\n\n' +
-        'You have access to the complete brainstorm data including:\n' +
-        '- ' + totalConcepts + ' concepts organized across ' + Object.keys(TOPIC_NAMES).length + ' topics\n' +
-        '- Status distribution: Know=' + statusCounts.know + ', Fuzzy=' + statusCounts.fuzzy + ', Unknown=' + statusCounts.unknown + ', Explore=' + statusCounts.explore + '\n' +
-        '- ' + totalConnections + ' connections/relationships between concepts\n' +
-        '- ' + totalIdeas + ' captured ideas/innovations\n' +
-        '- ' + annotationCounts.ai + ' AI analysis insights gathered during exploration\n' +
-        '- ' + annotationCounts.question + ' questions raised\n' +
-        '- ' + annotationCounts.comment + ' observations and comments\n\n' +
-        'Create a polished, professional research brief that:\n' +
-        '1. Opens with an executive summary synthesizing the key themes and findings\n' +
-        '2. Presents a knowledge assessment - what is well understood vs. needs more exploration\n' +
-        '3. Organizes concepts by topic with insights integrated into each section\n' +
-        '4. Highlights interesting connections and cross-topic relationships\n' +
-        '5. Documents captured ideas and innovations with context on why they emerged\n' +
-        '6. Integrates AI insights and user annotations naturally (not as separate lists)\n' +
-        '7. Identifies gaps, open questions, and areas needing further research\n' +
-        '8. Concludes with key takeaways and recommended next steps\n\n' +
-        'The document should read as a cohesive research synthesis, not a data dump. ' +
-        'Tell a story about the exploration journey and what was learned.\n\n' +
-        'Return ONLY the markdown content, no preamble or explanation.';
+      var prompt = 'Generate a comprehensive research brief document in Markdown format for the brainstorming session "' + PROJECT_NAME + '".\n\n';
+
+      prompt += '## Available Data\n';
+      prompt += '- ' + totalConcepts + ' concepts organized across ' + topicCount + ' topics\n';
+      prompt += '- Knowledge status: Know=' + stats.statusCounts.know + ', Fuzzy=' + stats.statusCounts.fuzzy + ', Unknown=' + stats.statusCounts.unknown + ', Explore=' + stats.statusCounts.explore + '\n';
+      prompt += '- ' + connections.total + ' connections between concepts\n';
+      prompt += '- ' + connections.crossTopicLinks.length + ' cross-topic relationships\n';
+      prompt += '- ' + totalIdeas + ' captured ideas/innovations\n';
+      prompt += '- ' + stats.conceptsWithAnnotations + ' concepts with annotations/insights\n';
+      prompt += '- ' + stats.byType.ai + ' AI analysis summaries\n';
+      prompt += '- ' + stats.byType.question + ' user questions\n';
+      prompt += '- ' + stats.byType.comment + ' user observations\n\n';
+
+      // Add connection insights
+      if (connections.hubs.length > 0) {
+        prompt += '## Key Connection Hubs\n';
+        connections.hubs.forEach(function(hub) {
+          prompt += '- **' + hub.name + '**: ' + hub.count + ' connections\n';
+        });
+        prompt += '\n';
+      }
+
+      if (connections.crossTopicLinks.length > 0) {
+        prompt += '## Cross-Topic Relationships\n';
+        connections.crossTopicLinks.slice(0, 10).forEach(function(link) {
+          prompt += '- ' + link.from + ' (' + link.fromTopic + ') \u2194 ' + link.to + ' (' + link.toTopic + ')\n';
+        });
+        if (connections.crossTopicLinks.length > 10) {
+          prompt += '- ...and ' + (connections.crossTopicLinks.length - 10) + ' more\n';
+        }
+        prompt += '\n';
+      }
+
+      // Add organized annotations section if there are any
+      if (stats.totalAnnotations > 0) {
+        prompt += '## Gathered Insights by Topic\n';
+        prompt += 'Below are all annotations organized by topic. Labels indicate source:\n';
+        prompt += '- [User-question], [User-comment]: User-contributed annotations\n';
+        prompt += '- [AI-answer], [AI-explain], [AI-expand], [AI-challenge]: AI-generated insights\n';
+        prompt += '- Status badges: [KNOW], [FUZZY], [UNKNOWN], [EXPLORE] indicate knowledge level\n\n';
+        prompt += organizedText + '\n\n';
+      }
+
+      prompt += '## Output Requirements\n';
+      prompt += 'Create a polished, professional research brief that:\n';
+      prompt += '1. Opens with an executive summary synthesizing the key themes and findings\n';
+      prompt += '2. Presents a knowledge assessment - what is well understood ([KNOW]) vs needs exploration ([UNKNOWN], [EXPLORE])\n';
+      prompt += '3. Organizes content by topic, integrating insights with inline labels:\n';
+      prompt += '   - Preserve the [AI-...] and [User-...] labels to show information source\n';
+      prompt += '   - Summarize AI insights (2-3 sentences max per insight)\n';
+      prompt += '   - Include user questions and comments as-is\n';
+      prompt += '4. Highlights interesting connections and cross-topic relationships (use the hub and cross-topic data)\n';
+      prompt += '5. Documents captured ideas with context on why they emerged\n';
+      prompt += '6. Identifies knowledge gaps and areas needing further research\n';
+      prompt += '7. Concludes with key takeaways and recommended next steps\n\n';
+      prompt += 'The document should read as a cohesive research synthesis with integrated insights, telling a story about what was learned.\n\n';
+      prompt += 'Return ONLY the markdown content, no preamble or explanation.';
+
+      return prompt;
     }
 
     function downloadMarkdownFile(content, filename) {
