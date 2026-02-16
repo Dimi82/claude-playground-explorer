@@ -168,6 +168,21 @@ const CONFIG = {
         { id: "msg-6", from: "auth", to: "api", label: "token", type: "return" },
         { id: "msg-7", from: "api", to: "client", label: "200 OK + token", type: "return" }
       ]
+    },
+    // IMPORTANT: Subsequent flows also need IDs on ALL messages!
+    {
+      name: "Logout Flow",
+      participants: [
+        { id: "client", name: "Client" },
+        { id: "api", name: "API Gateway" },
+        { id: "auth", name: "Auth Service" }
+      ],
+      messages: [
+        { id: "logout-1", from: "client", to: "api", label: "POST /logout", type: "sync" },
+        { id: "logout-2", from: "api", to: "auth", label: "invalidateSession()", type: "sync" },
+        { id: "logout-3", from: "auth", to: "api", label: "success", type: "return" },
+        { id: "logout-4", from: "api", to: "client", label: "200 OK", type: "return" }
+      ]
     }
   ]
 };
@@ -245,13 +260,18 @@ Define actors/systems that send/receive messages:
 Define interactions between participants:
 ```javascript
 {
-  id: "msg-1",           // Optional: enables selection/annotation
+  id: "msg-1",           // REQUIRED for interactivity: enables click selection, context menu, and annotations
   from: "participant-id",
   to: "participant-id",
   label: "message text",
   type: "sync"           // sync, async, return
 }
 ```
+
+**IMPORTANT**: Every message in every sequence flow MUST have a unique `id`. Without an `id`, the message arrow will not be clickable and users cannot select it or add annotations. Use a consistent naming pattern like:
+- First flow: `msg-1`, `msg-2`, `msg-3`, ...
+- Second flow: `msg-2-1`, `msg-2-2`, `msg-2-3`, ... (or `flow2-msg-1`, etc.)
+- Or use descriptive IDs: `msg-login-request`, `msg-auth-response`, etc.
 
 ### Message Types
 | Type | Visual | Use For |
@@ -344,3 +364,5 @@ If `workflowStructureV2` is not defined, the legacy `workflowStructure` (array o
    - All file tree entries with `component` set
 
    Without componentData entries, the details panel will be empty when users click elements. The details panel is essential for understanding what each element represents.
+
+8. **MANDATORY: Every sequence message needs an `id`** - ALL messages in ALL sequence flows must have unique `id` properties. Messages without IDs cannot be clicked, selected, or annotated. This applies to EVERY sequence flow, not just the first one. Double-check that subsequent sequence flows have IDs on all their messages.

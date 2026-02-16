@@ -22,7 +22,7 @@
     }
     .header-btn:hover { background: #30363d; }
     .header-btn.active { background: #238636; border-color: #238636; color: white; }
-    .main-container { display: flex; flex: 1; overflow: hidden; }
+    .main-container { display: flex; flex: 1; overflow: hidden; min-height: 0; }
 
     /* Left Panel */
     .component-tree {
@@ -62,7 +62,7 @@
     .icon-entry { background: #58a6ff; color: white; }
 
     /* Center Panel */
-    .diagram-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .diagram-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; margin-right: 420px; }
     .diagram-header {
       background: #161b22; border-bottom: 1px solid #30363d; padding: 12px 24px;
       display: flex; align-items: center; justify-content: space-between;
@@ -140,7 +140,7 @@
 
     /* Sequence Diagram */
     .sequence-diagram { padding: 40px; display: flex; flex-direction: column; gap: 60px; }
-    .sequence-flow { display: flex; flex-direction: column; min-width: 800px; }
+    .sequence-flow { display: flex; flex-direction: column; min-width: 800px; position: relative; isolation: isolate; }
     .sequence-flow-title { font-size: 14px; font-weight: 600; color: #f0f6fc; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid #30363d; }
     .participant-header { display: grid; gap: 40px; margin-bottom: 0; position: relative; z-index: 2; }
     .participant-box {
@@ -152,14 +152,14 @@
       content: ''; position: absolute; bottom: -20px; left: 50%;
       transform: translateX(-50%); width: 2px; height: 20px; background: #30363d;
     }
-    .sequence-timeline { display: grid; gap: 40px; position: relative; min-height: 100px; }
-    .lifeline-column { display: flex; flex-direction: column; align-items: center; position: relative; }
+    .sequence-timeline { display: grid; gap: 40px; position: relative; min-height: 100px; isolation: isolate; }
+    .lifeline-column { display: flex; flex-direction: column; align-items: center; position: relative; pointer-events: none; }
     .lifeline { width: 2px; background: #30363d; position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); }
-    .messages-layer { position: absolute; top: 20px; left: 0; right: 0; display: flex; flex-direction: column; gap: 24px; z-index: 1; }
+    .messages-layer { position: absolute; top: 20px; left: 0; right: 0; display: flex; flex-direction: column; gap: 24px; z-index: 3; pointer-events: none; }
     .message-row { display: grid; gap: 40px; align-items: center; min-height: 40px; }
     .message-arrow {
       position: relative; display: flex; align-items: center; justify-content: center;
-      cursor: pointer; padding: 4px 0; transition: all 0.2s; min-height: 32px;
+      cursor: pointer; padding: 4px 0; transition: all 0.2s; min-height: 32px; pointer-events: auto;
     }
     .message-arrow::before {
       content: ''; position: absolute; height: 2px; background: #58a6ff;
@@ -222,8 +222,28 @@
     .sequence-fragment.opt .fragment-label { color: #a371f7; border-color: #a371f7; }
 
     /* Right Panel */
-    .details-panel { width: 420px; background: #161b22; border-left: 1px solid #30363d; display: flex; flex-direction: column; flex-shrink: 0; }
-    .resize-handle { width: 4px; background: #30363d; cursor: col-resize; flex-shrink: 0; transition: background 0.15s; }
+    .details-panel {
+      position: fixed;
+      top: 57px; /* header height */
+      right: 0;
+      bottom: 0;
+      width: 420px;
+      background: #161b22;
+      border-left: 1px solid #30363d;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+    }
+    .resize-handle {
+      position: fixed;
+      top: 57px;
+      bottom: 0;
+      width: 4px;
+      background: #30363d;
+      cursor: col-resize;
+      z-index: 101;
+      transition: background 0.15s;
+    }
     .resize-handle:hover { background: #58a6ff; }
     .details-header { padding: 16px 20px; border-bottom: 1px solid #30363d; display: flex; align-items: center; justify-content: space-between; }
     .details-title { font-weight: 600; font-size: 16px; }
@@ -1268,14 +1288,14 @@
       }
       var diagram = document.createElement('div');
       diagram.className = 'sequence-diagram';
-      state.sequenceFlows.forEach(function(flow) {
-        var flowContainer = createSequenceFlow(flow);
+      state.sequenceFlows.forEach(function(flow, flowIndex) {
+        var flowContainer = createSequenceFlow(flow, flowIndex);
         diagram.appendChild(flowContainer);
       });
       canvas.appendChild(diagram);
     }
 
-    function createSequenceFlow(flow) {
+    function createSequenceFlow(flow, flowIndex) {
       var container = document.createElement('div');
       container.className = 'sequence-flow';
       if (!flow.participants || !Array.isArray(flow.participants) || flow.participants.length === 0) {
@@ -1319,7 +1339,7 @@
       });
       var messagesLayer = document.createElement('div');
       messagesLayer.className = 'messages-layer';
-      messages.forEach(function(msg) {
+      messages.forEach(function(msg, messageIndex) {
         if (!msg.from || !msg.to) return;
         var fromIdx = flow.participants.findIndex(function(p) { return p.id === msg.from; });
         var toIdx = flow.participants.findIndex(function(p) { return p.id === msg.to; });
@@ -1327,7 +1347,7 @@
         var messageRow = document.createElement('div');
         messageRow.className = 'message-row';
         messageRow.style.gridTemplateColumns = 'repeat(' + flow.participants.length + ', 1fr)';
-        var arrow = createMessageArrow(msg, fromIdx, toIdx, flow.participants.length);
+        var arrow = createMessageArrow(msg, fromIdx, toIdx, flow.participants.length, flowIndex, messageIndex);
         messageRow.appendChild(arrow);
         messagesLayer.appendChild(messageRow);
       });
@@ -1336,10 +1356,12 @@
       return container;
     }
 
-    function createMessageArrow(message, fromIndex, toIndex, participantCount) {
+    function createMessageArrow(message, fromIndex, toIndex, participantCount, flowIndex, messageIndex) {
       var arrow = document.createElement('div');
       arrow.className = 'message-arrow';
-      if (message.id) arrow.dataset.component = message.id;
+      // Generate a synthetic ID if message doesn't have one
+      var effectiveId = message.id || ('seq-msg-' + flowIndex + '-' + messageIndex);
+      arrow.dataset.component = effectiveId;
       if (message.type === 'return') arrow.classList.add('return');
       if (message.type === 'async') arrow.classList.add('async');
       var isSelfCall = fromIndex === toIndex;
@@ -1356,15 +1378,25 @@
       label.className = 'message-label';
       label.textContent = message.label || '';
       arrow.appendChild(label);
-      if (message.id) {
-        if (state.selectedComponent === message.id) arrow.classList.add('selected');
-        if (state.annotations[message.id] && state.annotations[message.id].length > 0) {
-          arrow.classList.add('has-annotation');
-        }
-        arrow.addEventListener('click', function() { selectComponent(message.id); });
-        arrow.addEventListener('contextmenu', function(e) { showContextMenu(e, message.id); });
-        // Add loading state if AI request pending
-        renderNodeLoadingState(arrow, message.id);
+      // Always attach event handlers using the effective ID
+      if (state.selectedComponent === effectiveId) arrow.classList.add('selected');
+      if (state.annotations[effectiveId] && state.annotations[effectiveId].length > 0) {
+        arrow.classList.add('has-annotation');
+      }
+      arrow.addEventListener('click', function() { selectComponent(effectiveId); });
+      arrow.addEventListener('contextmenu', function(e) { showContextMenu(e, effectiveId); });
+      // Add loading state if AI request pending
+      renderNodeLoadingState(arrow, effectiveId);
+      // Store reference back to original message data for display
+      if (!message.id) {
+        state.componentData[effectiveId] = {
+          title: message.label || 'Message',
+          badge: message.type || 'sync',
+          badgeLabel: (message.type || 'SYNC').toUpperCase(),
+          file: '',
+          description: 'Message from ' + message.from + ' to ' + message.to,
+          responsibilities: []
+        };
       }
       return arrow;
     }
@@ -2943,12 +2975,22 @@
     (function initResize() {
       const handle = document.getElementById('resize-handle');
       const detailsPanel = document.querySelector('.details-panel');
+      const diagramPanel = document.querySelector('.diagram-panel');
       const MIN_WIDTH = 200;
       const MAX_WIDTH = 600;
       const DEFAULT_WIDTH = 420;
       let isResizing = false;
       let startX = 0;
       let startWidth = DEFAULT_WIDTH;
+
+      function updatePanelWidth(width) {
+        detailsPanel.style.width = width + 'px';
+        handle.style.right = width + 'px';
+        diagramPanel.style.marginRight = width + 'px';
+      }
+
+      // Initialize positions
+      updatePanelWidth(DEFAULT_WIDTH);
 
       handle.addEventListener('mousedown', (e) => {
         isResizing = true;
@@ -2963,7 +3005,7 @@
         if (!isResizing) return;
         const delta = startX - e.clientX;
         const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + delta));
-        detailsPanel.style.width = newWidth + 'px';
+        updatePanelWidth(newWidth);
       });
 
       document.addEventListener('mouseup', () => {
@@ -2975,7 +3017,7 @@
       });
 
       handle.addEventListener('dblclick', () => {
-        detailsPanel.style.width = DEFAULT_WIDTH + 'px';
+        updatePanelWidth(DEFAULT_WIDTH);
       });
     })();
     })(); // End init
