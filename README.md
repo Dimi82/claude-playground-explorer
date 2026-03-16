@@ -1,16 +1,20 @@
-# Claude Playground Explorer
+# Claude Skills Collection
 
-Interactive HTML playgrounds for exploring project architecture and brainstorming, with real-time AI integration via MCP.
+A collection of custom Claude Code skills and agents for interactive development, brainstorming, voice interaction, browser integration, and more.
 
 ## Contents
 
-- **Skills** - Reusable workflows that Claude can invoke
-- **Agents** - Custom agent definitions with specialized prompts
+- **Skills** (7) - Reusable workflows that Claude can invoke
+- **Agents** (7) - Custom agent definitions with specialized prompts
 - **MCP Server** - Server for real-time browser-to-Claude communication
 
-## Skills Included
+---
 
-### playground-project-brainstorm
+## Skills
+
+### Interactive Playgrounds
+
+#### playground-project-brainstorm
 
 Creates an interactive HTML brainstorm explorer playground customized for any project's architecture.
 
@@ -27,7 +31,9 @@ Features:
 - **localStorage persistence** - all changes auto-save and restore
 - **Export to Markdown** - Export your entire brainstorm session to a structured `.md` file
 
-### playground-project-architecture
+**Depends on:** `playground-sync` MCP server (included). AI prompts target the `brainstorm-refiner` agent (included).
+
+#### playground-project-architecture
 
 Creates an interactive HTML architecture explorer playground for any project.
 
@@ -41,74 +47,123 @@ Features:
 - Component annotations (questions, comments, edit suggestions)
 - **AI Integration** - Right-click elements for AI explanations and analysis in real-time
 - **localStorage persistence** - all annotations auto-save
-- Export annotations to clipboard
-- Right-click context menu for quick annotation
 - **Export to Markdown** - Export annotations and architecture notes to a structured `.md` file
 
-## Custom Agents Included
+**Depends on:** `playground-sync` MCP server (included).
+
+### Brainstorming & Planning
+
+#### brainstorm-refine
+
+Iteratively refine ideas through structured brainstorming loops using the brainstorm-refiner agent. Each cycle: agent explores and challenges, you choose direction, agent refines, repeat until ready for implementation.
+
+**When to use:** Developing vague ideas into concrete concepts, evaluating multiple approaches, challenging assumptions, sharpening requirements before implementation.
+
+**Depends on:** agents `brainstorm-refiner` and `brainstorm-challenger` (included). After completion, hands off to [superpowers](https://github.com/anthropics/claude-plugins-official) skills (`superpowers:writing-plans`, `superpowers:using-git-worktrees`) if installed.
+
+#### goal-writer
+
+Helps professionals draft structured individual performance goals aligned with organizational strategy. Includes a companion agent that proactively gathers context before writing.
+
+**When to use:** Writing individual performance goals for a review cycle, preparing for goal-setting talks, creating development or strategic goals.
+
+**Depends on:** agent `goal-writer` (included).
+
+### Browser Integration
+
+#### browser-to-code
+
+Orchestrator skill that extracts context from your live Chrome browser tabs (Jira, Figma, docs) and transitions into the right development workflow (brainstorming, planning, debugging, code review). Requires the [chrome-cdp skill](https://github.com/nicobailey/chrome-cdp-skill).
+
+**Flow:** List Chrome tabs → User selects relevant tabs → Extract content → Summarize → User picks workflow → Invoke skill with full context
+
+**Depends on:** [chrome-cdp skill](https://github.com/nicobailey/chrome-cdp-skill) (required for tab access). Hands off to [superpowers](https://github.com/anthropics/claude-plugins-official) skills (`superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:systematic-debugging`, `superpowers:requesting-code-review`) based on selected workflow.
+
+### Voice Interaction
+
+#### voice-conversation
+
+Continuous voice dialogue — speaks responses aloud and listens for follow-ups until the user says stop or goodbye.
+
+**Depends on:** [voicemode MCP server](https://github.com/nicobailey/voicemode) (required).
+
+#### listen-once
+
+Single voice input capture without spoken response. Transcribes speech and responds in text only.
+
+**Depends on:** [voicemode MCP server](https://github.com/nicobailey/voicemode) (required).
+
+---
+
+## Custom Agents
+
+### goal-writer
+
+A structured, proactive agent that guides users through performance goal creation. Follows a phased approach: gathers organizational strategy, personal achievements, and planned work before drafting goals with success indicators at multiple achievement levels.
 
 ### brainstorm-refiner
 
-An elite thinking partner that helps explore, validate, and refine ideas through rigorous yet creative collaboration.
-
-**When to use:**
-- Early-stage concept development
-- Evaluating multiple approaches to a problem
-- Challenging assumptions systematically
-- Sharpening vague ideas into concrete proposals
+An elite thinking partner that helps explore, validate, and refine ideas through rigorous yet creative collaboration. Clarifies before expanding, challenges assumptions, explores multiple paths.
 
 ### brainstorm-challenger
 
-An elite thinking partner focused on stress-testing and evolving ideas through constructive challenge.
+An elite thinking partner focused on stress-testing and evolving ideas through constructive challenge. Finds gaps and opportunities, grounds ideas in reality.
 
-**When to use:**
-- Brainstorming sessions for new features
-- Validating product concepts
-- Exploring architectural decisions
-- When you're stuck and need fresh perspectives
+### architecture-designer
+
+Elite senior software architect for designing system architecture, technical specifications, API contracts, data models, and microservice boundaries. Follows a discovery → confirmation → proposal → refinement workflow.
+
+### code-simplifier
+
+Analyzes existing code and proposes behavior-preserving improvements that reduce cognitive load. Covers control flow simplification, naming, error handling, state management, and async patterns. Acts as a proposal agent — does not implement without approval.
+
+### pr-review-adopter
+
+Processes, evaluates, and systematically applies GitHub PR review comments. Does not blindly implement — reasons about correctness, impact, and trade-offs. Calls out incorrect or low-value feedback.
+
+### tech-research-advisor
+
+Authoritative technical researcher for technology evaluation and implementation guidance. Synthesizes multiple credible sources, compares alternatives with trade-offs, and produces actionable recommendations with citations. Supports Quick Brief, Advisory, and Deep Dive depth modes.
+
+---
 
 ## Prerequisites
 
-1. **Claude Code CLI** - Install from [Anthropic](https://docs.anthropic.com/en/docs/claude-code)
-   ```bash
-   npm install -g @anthropic-ai/claude-code
-   ```
+- **Claude Code CLI** - Install from [Anthropic](https://docs.anthropic.com/en/docs/claude-code)
 
-2. **Node.js 18+** - Required for the MCP server
-   ```bash
-   node --version  # Should be v18 or higher
-   ```
+Additional prerequisites by skill:
 
-3. **Modern web browser** - Chrome, Firefox, Safari, or Edge for viewing playgrounds
+| Skill | Requires |
+|-------|----------|
+| playground-project-* | Node.js 18+, modern browser |
+| browser-to-code | [chrome-cdp skill](https://github.com/nicobailey/chrome-cdp-skill), Chrome with remote debugging |
+| voice-conversation, listen-once | [voicemode MCP server](https://github.com/nicobailey/voicemode) |
+
+---
 
 ## Installation
 
-### Step 1: Copy Files
+Install only the skills you need. Run commands from the repository root.
 
-Run this from the repository root:
+### Quick Install — All Skills & Agents
 
 ```bash
-# Install MCP server to central location
-mkdir -p ~/.claude/mcp-servers
-cp servers/playground-sync.mjs ~/.claude/mcp-servers/
+# Create directories
+mkdir -p ~/.claude/skills ~/.claude/agents ~/.claude/mcp-servers
 
-# Install skills
-mkdir -p ~/.claude/skills
-cp -r playground-project-architecture ~/.claude/skills/
-cp -r playground-project-brainstorm ~/.claude/skills/
+# Copy all skills
+for skill in brainstorm-refine browser-to-code goal-writer listen-once playground-project-architecture playground-project-brainstorm voice-conversation; do
+  cp -r "$skill" ~/.claude/skills/
+done
 
-# Install agents
-mkdir -p ~/.claude/agents
+# Copy all agents
 cp agents/*.md ~/.claude/agents/
+
+# Copy MCP server (for playground skills)
+cp servers/playground-sync.mjs ~/.claude/mcp-servers/
 ```
 
-### Step 2: Configure MCP Server
-
-Add the playground-sync server to `~/.claude.json` (Claude Code's global config file).
-
-1. Open `~/.claude.json` in your editor
-2. Find the `"mcpServers"` section near the end of the file
-3. Add the playground-sync entry:
+Then configure the MCP server for playground skills — add to `~/.claude.json`:
 
 ```json
 "mcpServers": {
@@ -121,67 +176,99 @@ Add the playground-sync server to `~/.claude.json` (Claude Code's global config 
 }
 ```
 
-**Important:** Replace `/Users/yourname` with your actual home directory path (e.g., `/Users/john` on macOS or `/home/john` on Linux).
+Replace `/Users/yourname` with your actual home directory path.
 
-If you already have other MCP servers configured, add playground-sync alongside them:
+**Restart Claude Code after installation** for skills to be detected.
 
-```json
-"mcpServers": {
-  "existing-server": { ... },
-  "playground-sync": {
-    "type": "stdio",
-    "command": "node",
-    "args": ["/Users/yourname/.claude/mcp-servers/playground-sync.mjs"],
-    "env": {}
-  }
-}
+### Individual Skill Installation
+
+#### goal-writer
+
+```bash
+mkdir -p ~/.claude/skills ~/.claude/agents
+cp -r goal-writer ~/.claude/skills/
+cp agents/goal-writer.md ~/.claude/agents/
 ```
 
-### Step 3: Restart Claude Code
+#### playground-project-architecture
 
-After modifying `~/.claude.json`, restart Claude Code for changes to take effect.
+```bash
+mkdir -p ~/.claude/skills ~/.claude/mcp-servers
+cp -r playground-project-architecture ~/.claude/skills/
+cp servers/playground-sync.mjs ~/.claude/mcp-servers/
+```
+
+Requires MCP server configuration (see Quick Install above).
+
+#### playground-project-brainstorm
+
+```bash
+mkdir -p ~/.claude/skills
+cp -r playground-project-brainstorm ~/.claude/skills/
+```
+
+If you already installed the MCP server for playground-project-architecture, no additional setup is needed.
+
+#### brainstorm-refine
+
+```bash
+mkdir -p ~/.claude/skills ~/.claude/agents
+cp -r brainstorm-refine ~/.claude/skills/
+cp agents/brainstorm-refiner.md ~/.claude/agents/
+cp agents/brainstorm-challenger.md ~/.claude/agents/
+```
+
+#### browser-to-code
+
+Requires the [chrome-cdp skill](https://github.com/nicobailey/chrome-cdp-skill) to be installed first.
+
+```bash
+mkdir -p ~/.claude/skills
+cp -r browser-to-code ~/.claude/skills/
+```
+
+#### voice-conversation / listen-once
+
+```bash
+mkdir -p ~/.claude/skills
+cp -r voice-conversation ~/.claude/skills/
+cp -r listen-once ~/.claude/skills/
+```
+
+Requires the [voicemode MCP server](https://github.com/nicobailey/voicemode).
+
+#### Agents Only (no skill dependency)
+
+```bash
+mkdir -p ~/.claude/agents
+cp agents/architecture-designer.md ~/.claude/agents/
+cp agents/code-simplifier.md ~/.claude/agents/
+cp agents/pr-review-adopter.md ~/.claude/agents/
+cp agents/tech-research-advisor.md ~/.claude/agents/
+```
 
 ### Symlink Install (For Development)
 
-If you want to edit the skills and have changes reflect immediately:
+If you want edits to reflect immediately without re-copying:
 
 ```bash
-# Skills
-ln -sf "$(pwd)/playground-project-architecture" ~/.claude/skills/
-ln -sf "$(pwd)/playground-project-brainstorm" ~/.claude/skills/
+# Example for a skill
+ln -sf "$(pwd)/goal-writer" ~/.claude/skills/
 
-# Agents
-ln -sf "$(pwd)/agents/brainstorm-refiner.md" ~/.claude/agents/
-ln -sf "$(pwd)/agents/brainstorm-challenger.md" ~/.claude/agents/
-
-# MCP server
-ln -sf "$(pwd)/servers/playground-sync.mjs" ~/.claude/mcp-servers/
+# Example for an agent
+ln -sf "$(pwd)/agents/goal-writer.md" ~/.claude/agents/
 ```
 
-## Verification
+Same pattern applies to any other skill or agent.
 
-After installation and restart:
-
-```bash
-# Start Claude Code
-claude
-
-# Check MCP server is connected
-/mcp
-# Should show "playground-sync" as connected
-
-# If not connected, select it from the /mcp menu to connect
-```
+---
 
 ## Usage
 
 ### Create Playgrounds
 
 ```
-# Create a brainstorm explorer for current project
 /playground-project-brainstorm
-
-# Create an architecture explorer for current project
 /playground-project-architecture
 ```
 
@@ -201,7 +288,7 @@ technologies, structure them and provide relations and connections
 by visualizing it.
 ```
 
-### Interactive AI Mode
+### Interactive AI Mode (Playgrounds)
 
 With the MCP server configured, playgrounds can communicate with Claude in real-time:
 
@@ -242,11 +329,20 @@ Both playgrounds support exporting your session to structured Markdown files:
   - Architecture notes organized by component
   - AI responses captured during the session
 
-**Use cases:**
-- Save brainstorm sessions for later reference
-- Share architecture analysis with team members
-- Import notes into documentation or project planning tools
-- Create a paper trail of architectural decisions
+### Voice Interaction
+
+```
+/voice-conversation     # Continuous voice dialogue
+/listen-once           # Single voice capture, text response
+```
+
+### Browser Context Gathering
+
+```
+/browser-to-code       # Extract context from Chrome tabs → workflow
+```
+
+---
 
 ## File Structure
 
@@ -254,20 +350,33 @@ Both playgrounds support exporting your session to structured Markdown files:
 claude-playground-explorer/
 ├── README.md
 ├── servers/
-│   └── playground-sync.mjs           # MCP server for browser-Claude bridge
+│   └── playground-sync.mjs              # MCP server for browser-Claude bridge
 ├── agents/
-│   ├── brainstorm-refiner.md         # Custom agent definition
-│   └── brainstorm-challenger.md      # Custom agent definition
-├── playground-project-brainstorm/
-│   ├── SKILL.md                      # Skill definition
+│   ├── architecture-designer.md         # System architecture agent
+│   ├── brainstorm-challenger.md         # Idea stress-testing agent
+│   ├── brainstorm-refiner.md            # Idea refinement agent
+│   ├── code-simplifier.md              # Code simplification agent
+│   ├── goal-writer.md                  # Goal writing agent
+│   ├── pr-review-adopter.md            # PR review processing agent
+│   └── tech-research-advisor.md        # Technology research agent
+├── brainstorm-refine/
+│   └── SKILL.md
+├── browser-to-code/
+│   └── SKILL.md
+├── goal-writer/
+│   └── SKILL.md
+├── listen-once/
+│   └── SKILL.md
+├── playground-project-architecture/
+│   ├── SKILL.md
 │   └── templates/
-│       ├── brainstorm-explorer.html  # Main template
-│       └── brainstorm-explorer-test.html  # Test version
-└── playground-project-architecture/
-    ├── SKILL.md                      # Skill definition
-    └── templates/
-        ├── architecture-explorer.html     # Main template
-        └── architecture-explorer-test.html  # Test version
+│       └── architecture-explorer.html
+├── playground-project-brainstorm/
+│   ├── SKILL.md
+│   └── templates/
+│       └── brainstorm-explorer.html
+└── voice-conversation/
+    └── SKILL.md
 ```
 
 ### Installed Locations
@@ -277,22 +386,26 @@ After installation, files are placed in:
 ```
 ~/.claude/
 ├── mcp-servers/
-│   └── playground-sync.mjs           # MCP server
+│   └── playground-sync.mjs
 ├── skills/
+│   ├── brainstorm-refine/
+│   ├── browser-to-code/
+│   ├── goal-writer/
+│   ├── listen-once/
 │   ├── playground-project-architecture/
-│   │   ├── SKILL.md
-│   │   └── templates/
-│   │       └── architecture-explorer.html
-│   └── playground-project-brainstorm/
-│       ├── SKILL.md
-│       └── templates/
-│           └── brainstorm-explorer.html
+│   ├── playground-project-brainstorm/
+│   └── voice-conversation/
 └── agents/
+    ├── architecture-designer.md
+    ├── brainstorm-challenger.md
     ├── brainstorm-refiner.md
-    └── brainstorm-challenger.md
-
-~/.claude.json                        # MCP server config goes here
+    ├── code-simplifier.md
+    ├── goal-writer.md
+    ├── pr-review-adopter.md
+    └── tech-research-advisor.md
 ```
+
+---
 
 ## MCP Server Details
 
@@ -308,23 +421,14 @@ The `playground-sync` server provides:
 
 The server bridges browser HTTP requests to Claude's MCP protocol, enabling real-time AI interactions in playgrounds.
 
-## Customization
-
-### Skill Templates
-
-Each skill includes an HTML template. When Claude generates a playground:
-
-1. Analyzes your codebase
-2. Generates a config JS file with project-specific data
-3. Copies the template HTML
-4. Adds the config script reference
-5. Opens in browser
-
-### Agent Customization
-
-Edit agent `.md` files to customize behavior, model selection, and system prompts.
+---
 
 ## Troubleshooting
+
+### Skills not found
+- Verify files exist in `~/.claude/skills/`
+- Check SKILL.md frontmatter syntax is valid YAML
+- Restart Claude Code
 
 ### MCP server not connected
 - Run `/mcp` in Claude Code to see server status
@@ -333,9 +437,7 @@ Edit agent `.md` files to customize behavior, model selection, and system prompt
 - Ensure Node.js is installed and accessible
 
 ### Port 4242 already in use
-If you see "EADDRINUSE" errors, another process is using port 4242:
 ```bash
-# Find and kill the process
 lsof -i :4242
 kill <PID>
 ```
@@ -346,15 +448,7 @@ Then reconnect via `/mcp`.
 - Tell Claude to "listen to the playground" or "watch for playground interactions"
 - Check browser console for connection errors
 
-### No response from AI actions
-- Ensure Claude is actively watching (`playground_watch` is called)
-- Check browser console for errors
-- Verify the request appears in Claude's output
-
-### Skills not found
-- Verify files exist in `~/.claude/skills/`
-- Check SKILL.md frontmatter syntax is valid YAML
-- Restart Claude Code
+---
 
 ## License
 
