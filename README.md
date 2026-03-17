@@ -73,11 +73,11 @@ Helps professionals draft structured individual performance goals aligned with o
 
 #### browser-to-code
 
-Orchestrator skill that extracts context from your live Chrome browser tabs (Jira, Figma, docs) and transitions into the right development workflow (brainstorming, planning, debugging, code review). Requires the [chrome-cdp skill](https://github.com/nicobailey/chrome-cdp-skill).
+Orchestrator skill that extracts context from your live Chrome browser tabs (Jira, Figma, docs) and transitions into the right development workflow (brainstorming, planning, debugging, code review). Requires the [chrome-cdp skill](https://github.com/pasky/chrome-cdp-skill).
 
 **Flow:** List Chrome tabs → User selects relevant tabs → Extract content → Summarize → User picks workflow → Invoke skill with full context
 
-**Depends on:** [chrome-cdp skill](https://github.com/nicobailey/chrome-cdp-skill) (required for tab access). Hands off to [superpowers](https://github.com/anthropics/claude-plugins-official) skills (`superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:systematic-debugging`, `superpowers:requesting-code-review`) based on selected workflow.
+**Depends on:** [chrome-cdp skill](https://github.com/pasky/chrome-cdp-skill) (required for tab access). Hands off to [superpowers](https://github.com/anthropics/claude-plugins-official) skills (`superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:systematic-debugging`, `superpowers:requesting-code-review`) based on selected workflow.
 
 ### Voice Interaction
 
@@ -85,13 +85,13 @@ Orchestrator skill that extracts context from your live Chrome browser tabs (Jir
 
 Continuous voice dialogue — speaks responses aloud and listens for follow-ups until the user says stop or goodbye.
 
-**Depends on:** [voicemode MCP server](https://github.com/nicobailey/voicemode) (required).
+**Depends on:** [voicemode MCP server](https://github.com/mbailey/voicemode) (required).
 
 #### listen-once
 
 Single voice input capture without spoken response. Transcribes speech and responds in text only.
 
-**Depends on:** [voicemode MCP server](https://github.com/nicobailey/voicemode) (required).
+**Depends on:** [voicemode MCP server](https://github.com/mbailey/voicemode) (required).
 
 ---
 
@@ -136,8 +136,8 @@ Additional prerequisites by skill:
 | Skill | Requires |
 |-------|----------|
 | playground-project-* | Node.js 18+, modern browser |
-| browser-to-code | [chrome-cdp skill](https://github.com/nicobailey/chrome-cdp-skill), Chrome with remote debugging |
-| voice-conversation, listen-once | [voicemode MCP server](https://github.com/nicobailey/voicemode) |
+| browser-to-code | [chrome-cdp skill](https://github.com/pasky/chrome-cdp-skill), Chrome with remote debugging |
+| voice-conversation, listen-once | [voicemode MCP server](https://github.com/mbailey/voicemode) |
 
 ---
 
@@ -220,7 +220,7 @@ cp agents/brainstorm-challenger.md ~/.claude/agents/
 
 #### browser-to-code
 
-Requires the [chrome-cdp skill](https://github.com/nicobailey/chrome-cdp-skill) to be installed first.
+Requires the [chrome-cdp skill](https://github.com/pasky/chrome-cdp-skill) to be installed first.
 
 ```bash
 mkdir -p ~/.claude/skills
@@ -235,7 +235,7 @@ cp -r voice-conversation ~/.claude/skills/
 cp -r listen-once ~/.claude/skills/
 ```
 
-Requires the [voicemode MCP server](https://github.com/nicobailey/voicemode).
+Requires the [voicemode MCP server](https://github.com/mbailey/voicemode).
 
 #### Agents Only (no skill dependency)
 
